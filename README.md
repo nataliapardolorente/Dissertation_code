@@ -3,7 +3,9 @@
 ## Integration of genome-wide PAX8 and HNF1B binding with transcriptomics to deconvolute their contribution in clear cell renal carcinoma
 
 Author: Natalia Pardo Lorente
+
 MPhil in Genomic Medicine
+
 University of Cambridge
 
 This is the code that I personally developed during my research project.
