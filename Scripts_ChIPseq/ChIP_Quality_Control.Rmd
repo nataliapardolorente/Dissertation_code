@@ -1,0 +1,130 @@
+---
+title: "ChIPQC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ChIPQC)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(spp)
+```
+
+# Quality Control of ChIPseq data
+
+```{r}
+# obtain BAM files
+dir_BAM <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/BAM')
+BAM_files <- list.files(path=dir_BAM, pattern="*.bam$", full.names=TRUE, recursive=FALSE)
+names(BAM_files) <- c("Input_786O_bam", "Input_786M1A_bam", "Input_OSRC2_bam", "Input_OSLM1_bam", "PAX8_OSLM1_bam", "PAX8_786O_bam", "PAX8_OSRC2_bam", "PAX8_786M1A_bam", "HNF1B_786M1A_bam", "HNF1B_786O_bam", "HNF1B_OSRC2_bam", "HNF1B_OSLM1_bam")
+```
+
+```{r}
+# obtain narrowpeak files
+dir_peaks <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/macs2')
+narrowPeaks_files <- list.files(path=dir_peaks, pattern="*.narrowPeak", full.names=TRUE, recursive=FALSE)
+names(narrowPeaks_files) <- c("PAX8_OSLM1_peaks", "PAX8_786O_peaks", "PAX8_OSRC2_peaks", "PAX8_786M1A_peaks", "HNF1B_786M1A_peaks", "HNF1B_786O_peaks", "HNF1B_OSRC2_peaks", "HNF1B_OSLM1_peaks")
+```
+
+```{r}
+# obtain summit bed files
+summit_files <- list.files(path=dir_peaks, pattern="*summits.bed", full.names=TRUE, recursive=FALSE)
+names(summit_files) <- c("PAX8_OSLM1_peaks", "PAX8_786O_peaks", "PAX8_OSRC2_peaks", "PAX8_786M1A_peaks", "HNF1B_786M1A_peaks", "HNF1B_786O_peaks", "HNF1B_OSRC2_peaks", "HNF1B_OSLM1_peaks")
+```
+
+1. Create experiment
+
+```{r}
+# open experiment (try narrow peak files and summit files)
+chip_experiment_narrow <- read.csv('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/chip_experiment_narrow.csv')
+chip_experiment_summit <- read.csv('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/chip_experiment_summit.csv')
+```
+
+```{r}
+# create experiment 
+chip_exp_narrow <- ChIPQC(chip_experiment_narrow, annotation = "hg38", consensus = TRUE, fragmentLength = 300, shifts = 1:1000, profileWin = 600)
+chip_exp_summit <- ChIPQC(chip_experiment_summit, annotation = "hg38", consensus = TRUE, fragmentLength = 300, shifts = 1:1000, profileWin = 600)
+```
+
+The annotation parameter can be a built in annotation (default is “hg19”, but now we use “hg38”, since this is the genome
+build we used for sequence alignment), or you can define a prebuilt annotation as well. 
+
+The “consensus=TRUE” parameter will create a consensus peak set so that even the control samples can be compared to determine their enrichment. 
+
+You can also define the chromosome/chromosomes based on which you want to perform the analysis, however the default
+value here is the first chromosome that has peaks (in a real example usually chr1), so in this example there is no need to
+set this parameter.
+
+```{r}
+# obtain quality report
+ChIPQCreport(chip_exp_narrow, facetBy= "Tissue", colourBy= "Factor", reportFolder = "/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/narrowPeaks/")
+ChIPQCreport(chip_exp_summit, facetBy= "Tissue", colourBy= "Factor", reportFolder = "/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/summit")
+```
+
+Modify some of the plots so they look nicer.
+
+```{r}
+# modify plot Rap
+plotRap(chip_exp_narrow, facetBy= "Tissue") +
+  geom_boxplot(aes(fill = Factor), show.legend = FALSE) +
+  theme_bw() +
+  scale_x_discrete(labels = c("PAX8", "HNF1B", "Control")) +
+  ylab("Counts in peaks") +
+  theme(strip.text = element_text(size=15)) +
+  theme(axis.title.x = element_text(size = 15)) +
+  theme(axis.title.y = element_text(size = 15)) +
+  theme(axis.text.x = element_text(size = 15)) +
+  theme(axis.text.y = element_text(size = 15)) +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/narrowPeaks/Rap_modified.png")
+```
+
+```{r}
+# modify plot CC
+plotCC(chip_exp_narrow, facetBy= "Tissue", colourBy = "Factor") +
+  ylab("CC Score") +
+  xlab("Shift Size (bp)") +
+  theme_bw() +
+  theme(strip.text = element_text(size=15)) +
+  theme(axis.text.x = element_text(size = 10)) +
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(axis.title.x = element_text(size = 15)) +
+  theme(axis.title.y = element_text(size = 15)) +
+  theme(legend.text=element_text(size = 15)) +
+  theme(legend.title =element_text(size = 15))
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/narrowPeaks/CCplot_modified.png")
+```
+
+```{r}
+# modify plot Peak Profile
+plotPeakProfile(chip_exp_narrow, facetBy= "Tissue", colourBy = "Factor") +
+  ylab("Signal (read depth)") +
+  xlab("Distance (bp)") +
+  theme_bw() +
+  theme(strip.text = element_text(size=15)) +
+  theme(axis.text.x = element_text(size = 15)) +
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(axis.title.x = element_text(size = 15)) +
+  theme(axis.title.y = element_text(size = 15)) +
+  theme(legend.text=element_text(size = 15)) +
+  theme(legend.title =element_text(size = 15))
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/narrowPeaks/PeakProfile_modified.png")
+```
+
+
+```{r}
+# modify coverage histogram Profile
+plotCoverageHist(chip_exp_narrow, facetBy= "Tissue", colourBy = "Factor") +
+  ylab("log10(base pairs)") +
+  theme_bw() +
+  theme(strip.text = element_text(size=15)) +
+  theme(axis.text.x = element_text(size = 15)) +
+  theme(axis.text.y = element_text(size = 15)) +
+  theme(axis.title.x = element_text(size = 15)) +
+  theme(axis.title.y = element_text(size = 15)) +
+  theme(legend.text=element_text(size = 15)) +
+  theme(legend.title =element_text(size = 15))
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/QC/narrowPeaks/CoverageHistogram_modified.png")
+```
+
+```
+

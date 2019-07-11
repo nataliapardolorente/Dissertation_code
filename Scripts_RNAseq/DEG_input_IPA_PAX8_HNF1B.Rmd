@@ -1,0 +1,101 @@
+---
+title: "Convert_DEG_input_IPA_PAX8_HNF1B"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+1. PAX8
+
+Obtain input files for IPA from edgeR and DESeq2.
+
+```{r}
+PAX8_DEG_dir <- "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/"
+
+# obtain DEG files
+PAX8_DEG_files <- list.files(path = PAX8_DEG_dir, pattern = "RNAseq_*", full.names = TRUE)
+names(PAX8_DEG_files) <- list.files(path = PAX8_DEG_dir, pattern = "RNAseq_*", full.names = FALSE)
+
+# read DEG files and select only GeneID, logFC and FDR columns
+result <- vector("list") 
+for (i in seq_along(PAX8_DEG_files)) {
+  DEG_file <- read.table(PAX8_DEG_files[i], header = TRUE)
+  if (str_detect(PAX8_DEG_files[i], "DESeq2")) {
+    DEG_file <- DEG_file %>% select(GeneID, log2FoldChange, padj)
+    result[[i]] <- DEG_file
+    names(result[i]) <- names(PAX8_DEG_files[i])
+  } else if (str_detect(PAX8_DEG_files[i], "glmLRT")) {
+    DEG_file <- DEG_file %>% select(GeneID, logFC, FDR)
+    result[[i]] <- DEG_file
+    names(result[i]) <- names(PAX8_DEG_files[i])
+  }
+}
+names(result) <- names(PAX8_DEG_files)[1:4]
+
+# put both constructs together
+PAX8_DESeq2 <- full_join(result[["RNAseq_allGene_DESeq2_7861MA_786_7861MA_C.csv"]], result[["RNAseq_allGene_DESeq2_7861MA_1503_7861MA_C.csv"]], by = "GeneID")
+colnames(PAX8_DESeq2) <- c("GeneID", "KD-786 logFC", "KD-786 FDR", "KD-1503 logFC", "KD-1503 FDR")
+write_tsv(PAX8_DESeq2, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/IPA/PAX8_DESeq2.csv")
+
+# put both constructs together
+PAX8_edgeR <- full_join(result[["RNAseq_allGene_glmLRT_7861MA_786_7861MA_C.csv"]], result[["RNAseq_allGene_glmLRT_7861MA_1503_7861MA_C.csv"]], by = "GeneID")
+colnames(PAX8_edgeR) <- c("GeneID", "KD-786 logFC", "KD-786 FDR", "KD-1503 logFC", "KD-1503 FDR")
+write_tsv(PAX8_edgeR, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/IPA/PAX8_edgeR.csv")
+```
+
+2. HNF1b
+
+Obtain input files for IPA from edgeR and DESeq2.
+
+```{r}
+HNF1b_DEG_dir <- "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG"
+
+# obtain DEG files
+HNF1b_DEG_files <- list.files(path = HNF1b_DEG_dir, pattern = "RNAseq_*", full.names = TRUE)
+names(HNF1b_DEG_files) <- list.files(path = HNF1b_DEG_dir, pattern = "RNAseq_*", full.names = FALSE)
+
+# read DEG files and select only GeneID, logFC and FDR columns
+result <- vector("list") 
+for (i in seq_along(HNF1b_DEG_files)) {
+  DEG_file <- read.table(HNF1b_DEG_files[i], header = TRUE)
+  if (str_detect(HNF1b_DEG_files[i], "DESeq2")) {
+    DEG_file <- DEG_file %>% select(GeneID, log2FoldChange, padj)
+    result[[i]] <- DEG_file
+    names(result)[[i]] <- names(HNF1b_DEG_files)[[i]]
+  } else if (str_detect(HNF1b_DEG_files[i], "glmLRT")) {
+    DEG_file <- DEG_file %>% select(GeneID, logFC, FDR)
+    result[[i]] <- DEG_file
+    names(result)[[i]] <- names(HNF1b_DEG_files)[[i]]
+  }
+}
+
+# put both constructs together cell line 786M1A DESeq2
+HNF1b_786M1A_DESeq2 <- full_join(result[["HNF1b_M1A_RNAseq_allGene_DESeq2_7861MA_2_7861MA_C.csv"]], result[["HNF1b_M1A_RNAseq_allGene_DESeq2_7861MA_8_7861MA_C.csv"]], by = "GeneID")
+colnames(HNF1b_786M1A_DESeq2) <- c("GeneID", "786M1A KO-2 logFC", "786M1A KO-2 FDR", "786M1A KO-8 logFC", "786M1A KO-8 FDR")
+write_tsv(HNF1b_786M1A_DESeq2, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_786M1A_DESeq2.csv")
+
+# put both constructs together cell line 786M1A edgeR LRT
+HNF1b_786M1A_edgeR <- full_join(result[["HNF1b_M1A_RNAseq_allGene_glmLRT_7861MA_2_7861MA_C.csv"]], result[["HNF1b_M1A_RNAseq_allGene_glmLRT_7861MA_8_7861MA_C.csv"]], by = "GeneID")
+colnames(HNF1b_786M1A_edgeR) <- c("GeneID", "786M1A KO-2 logFC", "786M1A KO-2 FDR", "786M1A KO-8 logFC", "786M1A KO-8 FDR")
+write_tsv(HNF1b_786M1A_edgeR, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_786M1A_edgeR.csv")
+
+# put both constructs together cell line OSLM1 DESeq2
+HNF1b_OSLM1_DESeq2 <- full_join(result[["HNF1b_OSLM1_RNAseq_allGene_DESeq2_LM1B_2_LM1B_C.csv"]], result[["HNF1b_OSLM1_RNAseq_allGene_DESeq2_LM1B_8_LM1B_C.csv"]], by = "GeneID")
+colnames(HNF1b_OSLM1_DESeq2) <- c("GeneID", "OSLM1 KO-2 logFC", "OSLM1 KO-2 FDR", "OSLM1 KO-8 logFC", "OSLM1 KO-8 FDR")
+write_tsv(HNF1b_OSLM1_DESeq2, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_OSLM1_DESeq2.csv")
+
+# put both constructs together cell line OSLM1 edgeR
+HNF1b_OSLM1_edgeR <- full_join(result[["HNF1b_OSLM1_RNAseq_allGene_glmLRT_LM1B_2_LM1B_C.csv"]], result[["HNF1b_OSLM1_RNAseq_allGene_glmLRT_LM1B_8_LM1B_C.csv"]], by = "GeneID")
+colnames(HNF1b_OSLM1_edgeR) <- c("GeneID", "OSLM1 KO-2 logFC", "OSLM1 KO-2 FDR", "OSLM1 KO-8 logFC", "OSLM1 KO-8 FDR")
+write_tsv(HNF1b_OSLM1_edgeR, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_OSLM1_edgeR.csv")
+
+# put both cell lines together
+HNF1b_DESeq2 <- full_join(HNF1b_786M1A_DESeq2, HNF1b_OSLM1_DESeq2, by = "GeneID")
+write_tsv(HNF1b_DESeq2, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_DESeq2.csv")
+HNF1b_edgeR <- full_join(HNF1b_786M1A_edgeR, HNF1b_OSLM1_edgeR, by = "GeneID")
+write_tsv(HNF1b_edgeR, "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_edgeR.csv")
+```
+

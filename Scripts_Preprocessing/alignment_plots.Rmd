@@ -1,0 +1,61 @@
+---
+title: "alignment_plots"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Obtain alignment quality plots for ChIP-seq and RNA-seq datasets
+
+```{r}
+# obtain alignment statistics from samstats
+
+RNAseq_HNF1b_alig <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Info/RNA-seq_HNF1b_data.csv") %>% 
+  gather(-Sample, key = "Stats", value = "Percentage")
+RNAseq_HNF1b_alig$Stats <- factor(RNAseq_HNF1b_alig$Stats, levels = c("Unmapped", "MAPQ < 3", "MAPQ < 10", "MAPQ < 20", "MAPQ < 30", "MAPQ >= 30"))
+
+RNAseq_PAX8_alig <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Info/RNA-seq_PAX8_data.csv") %>% 
+  gather(-Sample, key = "Stats", value = "Percentage")
+RNAseq_PAX8_alig$Stats <- factor(RNAseq_PAX8_alig$Stats, levels = c("Unmapped", "MAPQ < 3", "MAPQ < 10", "MAPQ < 20", "MAPQ < 30", "MAPQ >= 30"))
+
+ChIPseq_alig <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Info/ChIP-seq_data.csv") %>% 
+  gather(-Sample, key = "Stats", value = "Percentage")
+ChIPseq_alig$Stats <- factor(ChIPseq_alig$Stats, levels = c("Unmapped", "MAPQ < 3", "MAPQ < 10", "MAPQ < 20", "MAPQ < 30", "MAPQ >= 30"))
+ChIPseq_alig$Sample <- factor(ChIPseq_alig$Sample, levels = c("Input 786-O", "Input 786-M1A", "Input OS-RC2", "Input OS-LM1", "PAX8 786-O", "PAX8 786-M1A", "PAX8 OS-RC2", "PAX8 OS-LM1", "HNF1B 786-O", "HNF1B 786-M1A", "HNF1B OS-RC2", "HNF1B OS-LM1"))
+```
+
+```{r}
+# colors 
+own_palete <- c("#8c8c8c", "00aedb", "00b159", "ffc425", "f37735", "d11141")
+
+# RNA-seq PAX8 plot
+ggplot(RNAseq_PAX8_alig, aes(x = Sample, y = Percentage, fill = Stats)) +
+  geom_bar(stat = "identity") +
+  ylab("Percentage (%)") +
+  scale_fill_manual(values = c("#8c8c8c", "#00aedb", "#00b159", "#ffc425", "#f37735", "#ff1493")) +
+  coord_flip() +
+  theme_classic() +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Plots/RNAseq_PAX8_alig.pdf",  width = 15,  height = 7.5, units = "cm")
+
+# RNA-seq HNF1b plot
+ggplot(RNAseq_HNF1b_alig, aes(x = Sample, y = Percentage, fill = Stats)) +
+  geom_bar(stat = "identity") +
+  ylab("Percentage (%)") +
+  coord_flip() +
+  scale_fill_manual(values = c("#8c8c8c", "#00aedb", "#00b159", "#ffc425", "#f37735", "#ff1493")) +
+  theme_classic() +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Plots/RNAseq_HNF1b_alig.pdf",  width = 15,  height = 15, units = "cm")
+
+# ChIP-seq plot
+ggplot(ChIPseq_alig, aes(x = Sample, y = Percentage, fill = Stats)) +
+  geom_bar(stat = "identity") +
+  ylab("Percentage (%)") +
+  scale_fill_manual(values = c("#8c8c8c", "#00aedb", "#00b159", "#ffc425", "#f37735", "#ff1493")) +
+  coord_flip() +
+  theme_classic() +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/Preprocessing/Alignment_Quality_plots/Plots/ChIPseq_alig.pdf", width = 15, height = 7.5,  units = "cm")
+
+```
+

@@ -1,0 +1,272 @@
+---
+title: "HNF1B_BETA_integration"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+
+# Input data
+
+- HNF1B DEG obtained for cell line 786M1A and OSLM1 by two different methods (edgeR and DESeq2).
+- HNF1B narrow peaks obtained for the cell line 786M1A and OSLM1 by macs2.
+
+# BETA integration
+
+BETA can integrate RNA-seq and ChIP-seq data to obtain a list of target genes.
+We performed BETA using DEG obtained considering constructs together and also considering constructs separated.
+
+Objective: Compare target genes in both constructs and detected by both methods (edgeR and DESeq2) for each cell line.
+
+# Cell Line 786-M1A
+
+1. RNA-seq analysis considering different constructs as replicates (constructs together)
+
+Threshold:
+
+d 50000
+c 0.0001
+df 0.05
+da 1
+
+```{r}
+# obtain list target genes when considered both constructs together
+HNF1B_target_786M1A_DESeq2_ct <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_together/output_DESeq2_df0.05_c50_c0.0001/HNF1b_DESeq2_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+
+HNF1B_target_786M1A_edgeR_ct <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_together/output_edgeRLRT_df0.05_c50_c0.0001/HNF1b_edgeRLRT_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+
+nrow(HNF1B_target_786M1A_DESeq2_ct)
+nrow(HNF1B_target_786M1A_edgeR_ct)
+```
+
+```{r}
+# obtain intersect between them
+HNF1B_target_786M1A_ct <- inner_join(HNF1B_target_786M1A_DESeq2_ct, HNF1B_target_786M1A_edgeR_ct, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_ct)
+```
+
+Results: good correlation between both methods edgeR and DESeq2.
+
+2. RNA-seq analysis considering different constructs independently (constructs separated)
+
+Threashold for all files:
+
+d 50000
+c 0.0001
+df 0.05
+da 1
+
+
+```{r}
+# obtain list target genes when considered both constructs separated
+HNF1B_target_786M1A_DESeq2_2 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_separated/output_DESeq2_2_df0.05_d50_c0.0001/HNF1b_DESeq2_2_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_786M1A_DESeq2_2)
+
+HNF1B_target_786M1A_DESeq2_8 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_separated/output_DESeq2_8_df0.05_d50_c0.0001/HNF1b_DESeq2_8_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_786M1A_DESeq2_8)
+
+HNF1B_target_786M1A_edgeRLRT_2 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_separated/output_edgeRLRT_2_df0.05_d50_c0.0001/HNF1b_edgeRLRT_2_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_786M1A_edgeRLRT_2)
+
+HNF1B_target_786M1A_edgeRLRT_8 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_separated/output_edgeRLRT_8_df0.05_d50_c0.0001/HNF1b_edgeRLRT_8_df0.05_d50_c0.0001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_786M1A_edgeRLRT_8)
+```
+
+```{r}
+# intersection between different programms (edgeR and DESeq2)
+HNF1B_target_786M1A_2 <- inner_join(HNF1B_target_786M1A_DESeq2_2, HNF1B_target_786M1A_edgeRLRT_2, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_2)
+HNF1B_target_786M1A_8 <- inner_join(HNF1B_target_786M1A_DESeq2_8, HNF1B_target_786M1A_edgeRLRT_8, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_8)
+
+# intersection between different constructs
+HNF1B_target_786M1A_cs <- inner_join(HNF1B_target_786M1A_2, HNF1B_target_786M1A_8, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_cs)
+```
+
+Results: good correlation between both methods edgeR and DESeq2.
+Good correlation between both constructs (2 and 8), although we lose some results.
+
+```{r}
+# intersection between targets when considering constructs together vs separated
+HNF1B_target_786M1A_only_ct <- anti_join(HNF1B_target_786M1A_ct, HNF1B_target_786M1A_cs, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_only_ct)
+HNF1B_target_786M1A_only_cs <- anti_join(HNF1B_target_786M1A_cs, HNF1B_target_786M1A_ct, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_only_cs)
+```
+
+
+We can see that all targets that were detected when analysing data coming from constructs separated (480) were detected also in constructs together (365), so we're not missing any information but we have other target genes that are not detected individually.
+
+
+```{r}
+# write results
+write_csv(HNF1B_target_786M1A_cs, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/targets/HNF1B_target_786M1A_cs.csv')
+write_csv(HNF1B_target_786M1A_ct, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/targets/HNF1B_target_786M1A_ct.csv')
+```
+
+I keep the target genes detected by both constructs independently and by both methods (more stringent)
+
+We obtain only the genes regulated at the promoter level: distance +- 10000 TSS
+
+Because we are only considering common genes detected by both constructs and both tools, the distance info can be obtained from each of the four files, we use DESeq2 and construct 2, but could be any file. 
+
+```{r}
+# obtain file with distance information from the TSS
+peaks_distance_info <- read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/Constructs_separated/output_DESeq2_2_df0.05_d50_c0.0001/HNF1b_DESeq2_2_df0.05_d50_c0.0001_downtarget_associate_peaks.bed', header = TRUE)
+
+# select genes with peaks around +-10000 TSS
+genes_peak_prom <- peaks_distance_info %>% filter(Distance >= -10000 & Distance <= 10000) %>% rename(GeneSymbol = "Symbol")
+
+# obtain HNF1b target genes in the promoter
+HNF1B_target_786M1A_prom <- inner_join(HNF1B_target_786M1A_cs, genes_peak_prom, by = "GeneSymbol")
+nrow(HNF1B_target_786M1A_prom)
+write_csv(HNF1B_target_786M1A_prom, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/targets/HNF1B_target_786M1A_cs_prom10000.csv')
+```
+
+
+```{r}
+# obtain list of targets (just symbol and ensembl ID)
+HNF1B_target_786M1A_prom_list <- HNF1B_target_786M1A_prom %>% select(GeneSymbol, refseqID.x.x) %>%
+  unique()
+nrow(HNF1B_target_786M1A_prom_list)
+write_csv(HNF1B_target_786M1A_prom_list, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/targets/HNF1B_target_list_786M1A_cs_prom10000.csv')
+```
+
+# Cell Line OS-LM1
+
+1. RNA-seq analysis considering different constructs as replicates (constructs together)
+
+Threshold:
+
+d 50000
+c 0.001
+df 0.05
+da 1
+
+```{r}
+# obtain list target genes when considered both constructs together
+HNF1B_target_OSLM1_DESeq2_ct <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_together/output_DESeq2_df0.05_d50_c0.001/HNF1b_DESeq2_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+
+HNF1B_target_OSLM1_edgeR_ct <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_together/output_edgeRLRT_df0.05_d50_c0.001/HNF1b_edgeRLRT_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+
+nrow(HNF1B_target_OSLM1_DESeq2_ct)
+nrow(HNF1B_target_OSLM1_edgeR_ct)
+```
+
+```{r}
+# obtain intersect between them
+HNF1B_target_OSLM1_ct <- inner_join(HNF1B_target_OSLM1_DESeq2_ct, HNF1B_target_OSLM1_edgeR_ct, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_ct)
+```
+
+Results: good correlation between both methods edgeR and DESeq2.
+
+2. RNA-seq analysis considering different constructs independently (constructs separated)
+
+Threashold for all files:
+
+d 50000
+c 0.001
+df 0.05
+da 1
+
+
+```{r}
+# obtain list target genes when considered both constructs separated
+HNF1B_target_OSLM1_DESeq2_2 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_separated/output_DESeq2_2_df0.05_d50_c0.001/HNF1b_DESeq2_2_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_OSLM1_DESeq2_2)
+
+HNF1B_target_OSLM1_DESeq2_8 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_separated/output_DESeq2_8_df0.05_d50_c0.001/HNF1b_DESeq2_8_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_OSLM1_DESeq2_8)
+
+HNF1B_target_OSLM1_edgeRLRT_2 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_separated/output_edgeRLRT_2_df0.05_d50_c0.001/HNF1b_edgeRLRT_2_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_OSLM1_edgeRLRT_2)
+
+HNF1B_target_OSLM1_edgeRLRT_8 <-read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_separated/output_edgeRLRT_8_df0.05_d50_c0.001/HNF1b_edgeRLRT_8_df0.05_d50_c0.001_downtarget.txt', header = TRUE, sep = '\t')
+nrow(HNF1B_target_OSLM1_edgeRLRT_8)
+```
+
+```{r}
+# intersection between different programms (edgeR and DESeq2)
+HNF1B_target_OSLM1_2 <- inner_join(HNF1B_target_OSLM1_DESeq2_2, HNF1B_target_OSLM1_edgeRLRT_2, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_2)
+HNF1B_target_OSLM1_8 <- inner_join(HNF1B_target_OSLM1_DESeq2_8, HNF1B_target_OSLM1_edgeRLRT_8, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_8)
+
+# intersection between different constructs
+HNF1B_target_OSLM1_cs <- inner_join(HNF1B_target_OSLM1_2, HNF1B_target_OSLM1_8, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_cs)
+```
+
+Results: good correlation between both methods edgeR and DESeq2.
+Very good correlation between both constructs (2 and 8), although we lose some results.
+
+```{r}
+# intersection between targets when considering constructs together vs separated
+HNF1B_target_OSLM1_only_ct <- anti_join(HNF1B_target_OSLM1_ct, HNF1B_target_OSLM1_cs, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_only_ct)
+
+HNF1B_target_OSLM1_only_cs <- anti_join(HNF1B_target_OSLM1_cs, HNF1B_target_OSLM1_ct, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_only_cs)
+```
+
+
+We can see that all targets that were detected when analysing data coming from constructs separated (1101) were detected also in constructs together (1397), so we're not missing any information but we have other target genes that are not detected individually.
+
+
+```{r}
+# write results
+write_csv(HNF1B_target_OSLM1_cs, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/targets/HNF1B_target_OSLM1_cs.csv')
+write_csv(HNF1B_target_OSLM1_ct, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/targets/HNF1B_target_OSLM1_ct.csv')
+```
+
+I keep the target genes detected by both constructs independently and by both methods (more stringent)
+
+We obtain only the genes regulated at the promoter level: distance +- 10000 TSS
+
+Because we are only considering common genes detected by both constructs and both tools, the distance info can be obtained from each of the four files, we use DESeq2 and construct 2, but could be any file. 
+
+```{r}
+# obtain file with distance information from the TSS
+peaks_distance_info <- read.table('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/constructs_separated/output_DESeq2_2_df0.05_d50_c0.001/HNF1b_DESeq2_2_df0.05_d50_c0.001_downtarget_associate_peaks.bed', header = TRUE)
+
+# select genes with peaks around +-10000 TSS
+genes_peak_prom <- peaks_distance_info %>% filter(Distance >= -10000 & Distance <= 10000) %>% rename(GeneSymbol = "Symbol")
+
+# obtain HNF1b target genes in the promoter
+HNF1B_target_OSLM1_prom <- inner_join(HNF1B_target_OSLM1_cs, genes_peak_prom, by = "GeneSymbol")
+nrow(HNF1B_target_OSLM1_prom)
+write_csv(HNF1B_target_OSLM1_prom, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/targets/HNF1B_target_OSLM1_cs_prom10000.csv')
+```
+
+```{r}
+# obtain list of targets (just symbol and ensembl ID)
+HNF1B_target_OSLM1_prom_list <- HNF1B_target_OSLM1_prom %>% select(GeneSymbol, refseqID.x.x) %>%
+  unique()
+nrow(HNF1B_target_OSLM1_prom_list)
+write_csv(HNF1B_target_OSLM1_prom_list, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/LM1B/targets/HNF1B_target_list_OSLM1_cs_prom10000.csv')
+```
+
+# Common targets for both cell lines
+
+We consider the list of target genes obtained by putting together the analysis of constructs separately. 
+
+```{r}
+# obtain list of common targets for both cell lines
+HNF1B_common_targets <- inner_join(HNF1B_target_786M1A_cs, HNF1B_target_OSLM1_cs, by = "GeneSymbol")
+nrow(HNF1B_common_targets)
+
+HNF1B_common_targets_prom <- inner_join(HNF1B_target_786M1A_prom, HNF1B_target_OSLM1_prom, by = "GeneSymbol")
+nrow(HNF1B_common_targets_prom)
+
+HNF1B_common_targets_prom_list <- HNF1B_common_targets_prom %>% select(GeneSymbol, refseqID.x.x.x) %>%
+  unique()
+nrow(HNF1B_common_targets_prom_list)
+
+write_csv(HNF1B_common_targets_prom, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/targets/HNF1B_common_targets_cs_prom10000.csv')
+write_csv(HNF1B_common_targets_prom_list, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/targets/HNF1B_common_targets_list_cs_prom10000.csv')
+```
+

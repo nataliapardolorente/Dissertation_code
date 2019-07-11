@@ -1,0 +1,86 @@
+---
+title: "IPA_plots_HNF1B"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# PAX8 results
+
+```{r}
+# input files
+IPA_results_KO1_786 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_786M1A_2_DESeq2.txt", delim = "\t", skip = 1)
+IPA_results_KO2_786 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_786M1A_8_DESeq2.txt", delim = "\t", skip = 1)
+IPA_results_KO1_LM1 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_OSLM1_2_DESeq2.txt", delim = "\t", skip = 1)
+IPA_results_KO2_LM1 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/IPA/HNF1b_OLSM1_8_DESeq2.txt", delim = "\t", skip = 1)
+```
+
+```{r}
+# modify df to plot
+IPA_results_df <- function(IPA_results) {
+  # consider only up and down pathways
+  IPA_results <- IPA_results %>% filter(`z-score` > 0 | `z-score` < 0)
+  # plot only the 15 most significant results
+  IPA_results <- IPA_results[1:15,]
+}
+
+IPA_results_KO1_786_df <- IPA_results_df(IPA_results_KO1_786)
+IPA_results_KO2_786_df <- IPA_results_df(IPA_results_KD2_786)
+
+IPA_results_KO1_LM1_df <- IPA_results_df(IPA_results_KO1_LM1)
+IPA_results_KO2_LM1_df <- IPA_results_df(IPA_results_KO2_LM1)
+
+# add column indicating KO and put data together 786M1A
+IPA_results_KO1_786_df$Condition <- c(rep("IPA results KO-1", nrow(IPA_results_KO1_786_df)))
+IPA_results_KO2_786_df$Condition <- c(rep("IPA results KO-2", nrow(IPA_results_KO2_786_df)))
+IPA_results_786 <- rbind(IPA_results_KO1_786_df, IPA_results_KO2_786_df) %>%
+  # add order
+  mutate(order = factor(paste(Condition, `Ingenuity Canonical Pathways`))) %>%
+  mutate(order = reorder(order, rank(` -log(p-value)`)))
+
+# add column indicating KO and put data together OSLM1
+IPA_results_KO1_LM1_df$Condition <- c(rep("IPA results KO-1", nrow(IPA_results_KO1_LM1_df)))
+IPA_results_KO2_LM1_df$Condition <- c(rep("IPA results KO-2", nrow(IPA_results_KO2_LM1_df)))
+IPA_results_LM1 <- rbind(IPA_results_KO1_LM1_df, IPA_results_KO2_LM1_df) %>%
+  # add order
+  mutate(order = factor(paste(Condition, `Ingenuity Canonical Pathways`))) %>%
+  mutate(order = reorder(order, rank(` -log(p-value)`)))
+```
+
+
+
+```{r}
+# plot
+obtain_IPA_plot <- function(IPA_results_df) {
+  threshold <- 1.3
+  ggplot(IPA_results_df, aes(x = order, y = ` -log(p-value)`, fill = `z-score`)) +
+    geom_col() +
+    facet_wrap(~ Condition, ncol = 1, scales = "free_y") +
+    geom_hline(aes(yintercept = threshold), color = "black", linetype="dashed") +
+    geom_text(aes(0,threshold, label = "Threshold", vjust= -2, hjust = 0)) +
+    scale_fill_gradient2(high="red", low = "blue", mid = "white", na.value="grey") +
+    scale_x_discrete(labels = IPA_results_df$`Ingenuity Canonical Pathways`, breaks = IPA_results_df$order) +
+    xlab("") +
+    ylab("-log10(pvalue)") +
+    labs(fill = "z-score") +
+    coord_flip() +
+    theme_bw() +
+    theme(strip.text = element_text(size=13)) +
+    theme(axis.text.x = element_text(size = 12, colour = "black")) +
+    theme(axis.text.y = element_text(size = 12, colour = "black")) +
+    theme(legend.title = element_text(size = 14, colour = "black")) +
+    theme(legend.text = element_text(size = 14, colour = "black")) +
+    theme(axis.title.x =  element_text(size = 12, colour = "black")) +
+    theme(title = element_text(size=13))
+  }
+
+obtain_IPA_plot(IPA_results_786) +
+  ggtitle("Pathway Analysis", subtitle = "HNF1B, cell line 786-M1A") +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/IPA_HNF1B_786.pdf",  height = 25, width = 23, units = "cm")
+
+obtain_IPA_plot(IPA_results_LM1) +
+  ggtitle("Pathway Analysis", subtitle = "HNF1B, cell line OS-LM1") +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/IPA_HNF1B_LM1.pdf",  height = 25, width = 23, units = "cm")
+```

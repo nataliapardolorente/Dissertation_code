@@ -1,0 +1,129 @@
+---
+title: "PAX8_PCA_heatmaps"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(ggfortify)
+library(pheatmap)
+library(RColorBrewer)
+library(edgeR)
+```
+
+This code is to obtain the definitive PCA and heatmap plots of the PAX8 data.
+
+```{r}
+# obtain the raw counts 
+load("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/Counts/RNAseq_experiment.json_counts.RData")
+PAX8_counts <- counts[[1]]
+```
+
+Notes: construct 1503 is 1, and construct 786 is 2.
+
+```{r}
+# modify column names in raw counts (construct 1503 is 1, and construct 786 is 2)
+colnames(PAX8_counts)
+colnames(PAX8_counts) <- c("786-M1A_KD1_r1", "786-M1A_KD1_r2", "786-M1A_KD1_r3", "786-M1A_KD1_r4", "786-M1A_KD2_r1", "786-M1A_KD2_r2", "786-M1A_KD2_r3", "786-M1A_KD2_r4", "786-M1A_C_r1", "786-M1A_C_r2", "786-M1A_C_r3", "786-M1A_C_r4" )
+```
+
+```{r}
+# obtain sample info and change constructs names
+PAX8_sampleinfo <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/PAX8SampleInfo.csv")
+rownames(PAX8_sampleinfo) <- colnames(PAX8_counts)
+PAX8_sampleinfo$Construct <- c(rep("Knock-Down 1", 4), rep("Knock-Down 2", 4), rep("Control",4))
+```
+
+
+```{r}
+#Filter out lowly expressed genes
+keep <- rowSums(cpm(PAX8_counts)>1) >= 2
+PAX8_counts <- PAX8_counts[keep,]
+
+# normalization
+PAX8_CPM <- cpm(PAX8_counts, log=TRUE, prior.count=3)
+```
+
+
+# Principal Compontent Analysis
+
+A principle components analysis (PCA) is an example of an unsupervised analysis, where we don’t specify the grouping of the samples. If your experiment is well controlled and has worked well, we should that replicate samples cluster closely, whilst the greatest sources of variation in the data should be between treatments/sample groups. It is also an incredibly useful tool for checking for outliers and batch effects.
+
+To run the PCA we need normalized data. Ideally: Replicate samples from the same group cluster together in the plot, while samples from different groups form separate clusters. This indicates that the differences between groups are larger than those within groups, i.e., differential expression is greater than the variance and can be detected. 
+
+```{r PCA_analysis}
+# perform pca analysis
+PAX8_CPM_PCA <- prcomp(t(PAX8_CPM), center=T, scale. = T)
+PAX8_CPM_PCAdf <- data.frame(PAX8_CPM_PCA$x) 
+if (all(rownames(PAX8_CPM_PCAdf) == rownames(PAX8_sampleinfo))) {
+  PAX8_CPM_PCAdf <- cbind(PAX8_CPM_PCAdf, PAX8_sampleinfo)
+}
+
+# plot pca analysis and save it into a png file
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/PAX8_PCA_plot_def.png", res = 300, width = 2000, height = 1300)
+PAX8_CPM_PCA_plot <- ggplot(PAX8_CPM_PCAdf, aes(x = PC1, y = PC2, colour = Construct, shape = `Cell Line`))
+PAX8_CPM_PCA_plot +
+  geom_point(size = 5) +
+  ggtitle("PCA of PAX8 Samples") +
+  labs(x = paste("PCA1 (",round(summary(PAX8_CPM_PCA)$importance[2,1]*100),"%)", sep=""), y = paste("PCA2 (",round(summary(PAX8_CPM_PCA)$importance[2,2]*100),"%)", sep=""), shape = "Cell Line") +
+  theme_bw() +
+  theme(legend.title = element_text(size = 20), legend.text = element_text(size = 18)) +
+  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 16)) +
+  theme(title = element_text(size = 18), plot.title = element_text(hjust = 0.5))
+dev.off()
+```
+
+# Hierarchical Clustering with Heat Maps
+
+We are going to plot the DEG common in the 2 constructs and detected by edgeR and DESeq2.
+Threshold: FDR 0.05, logFC 0.5
+
+```{r}
+# input common DEG for PAX8
+DEG_PAX8 <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_DEG.csv")
+# we filter all genes in counts and keep only the DEG
+PAX8_counts_DEG <- as.data.frame(PAX8_CPM) %>% 
+  rownames_to_column(var = "GeneID") %>% 
+  semi_join(DEG_PAX8, by = "GeneID") %>%
+  column_to_rownames("GeneID") %>%
+  as.matrix()
+```
+
+
+```{r}
+# annotation data frame
+annot <- data.frame(Type = PAX8_sampleinfo$Construct)
+rownames(annot) <- colnames(PAX8_counts_DEG)
+colnames(annot) <- c("Construct")
+annot_col <- colorRampPalette(colors = rev(brewer.pal(length(unique(PAX8_sampleinfo$Construct)), "Set1")))(length(unique(PAX8_sampleinfo$Construct)))
+names(annot_col) <- unique(PAX8_sampleinfo$Construct)
+annot_colors <- list(Construct = annot_col)
+
+# obtain color heatmap
+color_heatmap <- colorRampPalette(colors = rev(brewer.pal(11, "RdBu")))(100)
+
+```
+
+```{r}
+# Random numbers engine
+set.seed(2)
+
+# obtain heatmap
+pheatmap(PAX8_counts_DEG, 
+         scale = "row", #scale by row
+         color = color_heatmap, #colors of the heatmap
+         cluster_cols =F, 
+         cluster_rows =T, 
+         show_rownames = F,
+         show_colnames = F,
+         fontsize_col = 10, 
+         clustering_method = "complete", #clustering parameter (see hclust function)
+         clustering_distance_rows = "correlation", # clustering distance measure
+         annotation_col = annot, 
+         annotation_colors = annot_colors,
+         border_color = NA,
+         filename = "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/DEG_heatmap_PAX8.pdf"
+         )
+```
+

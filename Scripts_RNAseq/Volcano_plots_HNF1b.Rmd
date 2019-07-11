@@ -1,0 +1,111 @@
+---
+title: "Volcano_Plots_HNF1b"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggrepel)
+```
+
+# Obtain Volcano plots for HNF1B differential expression analysis results
+
+Data: Dif Exp analysis of RNA-seq data comparing PAX8 KD versus control, considering both constructs used as shRNA separately.
+
+Volcano plot displays a measure of significance on the y-axis and fold-change on the x-axis. In this case we use the log2 fold change (logFC) on the x-axis, and on the y-axis we’ll use -log10(FDR). 
+
+```{r}
+# obtain input files: DESeq2 and edgeR LRT
+input_dir <- '/Volumes/TOSHIBA/DEG'
+DEG_files_M1A <- list.files(path = input_dir, pattern = "HNF1b_M1A", full.names = TRUE)[1:4]
+names(DEG_files_M1A) <- list.files(path = input_dir, pattern = "HNF1b_M1A", full.names = FALSE)[1:4]
+DEG_files_LM1 <- list.files(path = input_dir, pattern = "HNF1b_OSLM1", full.names = TRUE)[1:4]
+names(DEG_files_LM1) <- list.files(path = input_dir, pattern = "HNF1b_OSLM1", full.names = FALSE)[1:4]
+```
+
+```{r}
+# read files
+DEG_read_M1A <- list()
+for (i in seq_along(DEG_files_M1A)) {
+  DEG_read_M1A[[i]] <- read_delim(DEG_files_M1A[[i]], delim = "\t")
+}
+names(DEG_read_M1A) <- names(DEG_files_M1A)
+
+DEG_read_LM1 <- list()
+for (i in seq_along(DEG_files_LM1)) {
+  DEG_read_LM1[[i]] <- read_delim(DEG_files_LM1[[i]], delim = "\t")
+}
+names(DEG_read_LM1) <- names(DEG_files_LM1)
+```
+
+```{r}
+# MYC, PAX8, HNF1B
+label_genes <- c("HNF1B", "PAX8")
+
+plot_Volcano_DESeq2 <- function(DESeq2_df) {
+  DESeq2_df <- DESeq2_df %>% 
+    # eliminate NA in padj
+    filter(!is.na(padj)) %>%
+    # add column -log10(padj)
+    mutate(`-log10(padj)` = -log10(padj)) %>%
+    # limit top values
+    mutate(`-log10(padj)`= pmin(`-log10(padj)`, 20.1)) %>%
+    # add labels
+    mutate(GeneLabel = ifelse(gene_name %in% label_genes, gene_name, ""))
+  #plot Volcano
+  ggplot(DESeq2_df, aes(x = log2FoldChange, y=`-log10(padj)`)) + 
+  geom_point(aes(colour=padj < 0.05, shape = `-log10(padj)` > 20), size=1.5) +
+  geom_text_repel(aes(label = GeneLabel), box.padding = 0.5) +
+  labs(x="log2FoldChange", y="-log10(FDR)", colour = "FDR<0.05", shape = "-log10(FDR)>20") + 
+  theme_bw() +
+  theme(legend.key.size = unit(4, "mm")) +
+  scale_color_manual(values = c("grey", "lightblue"))
+} 
+
+plot_Volcano_edgeR <- function(edgeR_df) {
+  edgeR_df <- edgeR_df %>% 
+    # add column -log10(FDR)
+    mutate(`-log10(FDR)` = -log10(FDR)) %>%
+    # limit top values
+    mutate(`-log10(FDR)`= pmin(`-log10(FDR)`, 20.1)) %>%
+    # add labels
+    mutate(GeneLabel = ifelse(gene_name %in% label_genes, gene_name, ""))
+  #plot Volcano
+  ggplot(edgeR_df, aes(x = logFC, y=`-log10(FDR)`)) + 
+  geom_point(aes(colour=FDR < 0.05, shape = `-log10(FDR)` > 20), size=1.5) +
+  geom_text_repel(aes(label = GeneLabel), box.padding = 0.5) +
+  labs(x="log2FoldChange", y="-log10(FDR)", colour = "FDR<0.05", shape = "-log10(FDR)>20") + 
+  theme_bw() +
+  theme(legend.key.size = unit(4, "mm")) +
+  scale_color_manual(values = c("grey", "lightblue"))
+}
+
+# plot and save 1MA
+plot_Volcano_DESeq2(DEG_read_M1A[[1]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line 786-M1A, KO 1 vs C (DESeq2)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_M1A_KO1vsC_DESEq2.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_DESeq2(DEG_read_M1A[[2]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line 786-M1A, KO 2 vs C (DESeq2)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_M1A_KO2vsC_DESEq2.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_edgeR(DEG_read_M1A[[3]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line 786-M1A, KO 1 vs C (edgeR)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_M1A_KO1vsC_edgeR.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_edgeR(DEG_read_M1A[[4]]) +
+  labs(title = "Volcano plot", subtitle = "Cell Line 786-M1A, KO 2 vs C (edgeR)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_M1A_KO2vsC_edgeR.pdf", width = 15, height = 10, units = "cm")
+
+# plot and save LM1
+plot_Volcano_DESeq2(DEG_read_LM1[[1]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line OS-LM1, KO 1 vs C (DESeq2)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_LM1_KO1vsC_DESEq2.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_DESeq2(DEG_read_LM1[[2]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line OS-LM1, KO 2 vs C (DESeq2)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_LM1_KO2vsC_DESEq2.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_edgeR(DEG_read_LM1[[3]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line OS-LM1, KO 1 vs C (edgeR)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_LM1_KO1vsC_edgeR.pdf", width = 15, height = 10, units = "cm")
+plot_Volcano_edgeR(DEG_read_LM1[[4]]) +
+  labs(title = "Volcano plot: HNF1B", subtitle = "Cell Line OS-LM1, KO 2 vs C (edgeR)") +
+  ggsave("/Volumes/TOSHIBA/Plots/HNF1B_Volcano_HNF1B_PAX8_LM1_KO2vsC_edgeR.pdf", width = 15, height = 10, units = "cm")
+  
+```

@@ -1,0 +1,55 @@
+---
+title: "Co-regulation_PAX8_HNF1b"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Check intersection of PAX8 and HNF1B DEG and targets
+
+1. Obtain common DEG 
+
+```{r}
+#input files with commonly DEG found by edgeR and DESeq2 and in the two constructs after PAX8 depletion
+PAX8_786M1A_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_DEG.csv')
+nrow(PAX8_786M1A_DEG)
+
+#input files with commonly DEG found by edgeR and DESeq2 and in the two constructs after HNF1B depletion for each cell line and common in both cell lines
+HNF1b_786M1A_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG/HNF1b_7861MA_DEG.csv')
+nrow(HNF1b_786M1A_DEG)
+
+HNF1b_OSLM1_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG/HNF1b_LM1B_DEG.csv')
+nrow(HNF1b_OSLM1_DEG)
+
+HNF1b_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG/HNF1b_both_DEG.csv')
+nrow(HNF1b_DEG)
+```
+
+```{r}
+# see intersection between PAX8 and HNF1B DEG in 786M1A (same cell line)
+DEG_PAX8_HNF1b_786M1A <- inner_join(PAX8_786M1A_DEG, HNF1b_786M1A_DEG, by = "GeneID")
+nrow(DEG_PAX8_HNF1b_786M1A)
+write_csv(DEG_PAX8_HNF1b_786M1A, '/shares/MRC-CU/Samarajiwa/Natalia/PAX8_HNF1b_common/DEG/DEG_PAX8_HNF1B_786M1A.csv')
+```
+
+2. Obtain common targets
+
+```{r}
+# input files with targets
+PAX8_target_786M1A <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/BETA/PAX8_target_list_7861MA_prom10000.csv')
+nrow(PAX8_target_786M1A)
+
+HNF1b_target_786M1A <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/7861MA/HNF1B_target_list_786M1A_cs_prom10000.csv')
+nrow(HNF1b_target_786M1A)
+```
+
+```{r}
+# see interaction between PAX8 and HNF1B targets in 786M1A (same cell line)
+target_PAX8_HNF1b_786M1A <- inner_join(PAX8_target_786M1A, HNF1b_target_786M1A, by = "GeneSymbol")
+nrow(target_PAX8_HNF1b_786M1A)
+write_csv(target_PAX8_HNF1b_786M1A, '/shares/MRC-CU/Samarajiwa/Natalia/PAX8_HNF1b_common/Targets/target_PAX8_HNF1B_786M1A.csv')
+```
+
+

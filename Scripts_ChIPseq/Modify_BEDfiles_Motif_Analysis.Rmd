@@ -1,0 +1,64 @@
+---
+title: "Modify_BEDfiles_Motif_Analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+```{r}
+#obtain bed files from narrowpeak
+
+dir <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/macs2')
+summit_files <- list.files(path=dir, pattern="*summits.bed", full.names=TRUE, recursive=FALSE)
+names(summit_files) <- c("PAX8_OSLM1_summit", "PAX8_786O_summit", "PAX8_OSRC2_summit", "PAX8_786M1A_summit", "HNF1B_786M1A_summit", "HNF1B_786O_summit", "HNF1B_OSRC2_summit", "HNF1B_OSLM1_summit")
+```
+
+```{r}
+# obtain a window of 300 bp around the summit (+150 and -150)
+
+output_dir <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Motif_Analysis/bed_files/')
+
+for (i in seq_along(summit_files)) {
+  summit_df <- read.table(summit_files[i], sep = "\t", header = FALSE)
+  colnames(summit_df) <- c("chr", "start", "end", "peak", "score")
+  exp_window <- summit_df  %>%
+    mutate(start = start - 150, end = end + 150, strand = ".")
+  write.table(exp_window, sep = "\t", row.names = FALSE, col.names = FALSE, file = paste0(output_dir, names(summit_files)[i], "exp_window.bed"), quote = FALSE)
+}
+```
+
+
+BED files should have at minimum 6 columns (separated by TABs, additional columns will be ignored)
+
+    Column1: chromosome
+    Column2: starting position
+    Column3: ending position
+    Column4: Unique Peak ID
+    Column5: not used
+    Column6: Strand (+/- or 0/1, where 0="+", 1="-")
+
+
+```{r}
+#obtain bed files from narrowpeak (public datasets)
+
+dir2 <- c('/shares/MRC-CU/Samarajiwa/Natalia/PublicDatasets/ChIP-seq_analysis/PAX8_summit/')
+summit_files2 <- list.files(path=dir2, pattern="*summits.bed", full.names=TRUE, recursive=FALSE)
+names(summit_files2) <- list.files(path=dir2, pattern="*summits.bed", full.names=FALSE, recursive=FALSE)
+```
+
+```{r}
+# obtain a window of 300 bp around the summit (+150 and -150)
+
+output_dir2 <- c('/shares/MRC-CU/Samarajiwa/Natalia/PublicDatasets/ChIP-seq_analysis/PAX8_summit/')
+
+for (i in seq_along(summit_files2)) {
+  summit_df <- read.table(summit_files2[i], sep = "\t", header = FALSE)
+  colnames(summit_df) <- c("chr", "start", "end", "peak", "score")
+  exp_window <- summit_df  %>%
+    mutate(start = start - 150, end = end + 150, strand = ".")
+  write.table(exp_window, sep = "\t", row.names = FALSE, col.names = FALSE, file = paste0(output_dir2, names(summit_files2)[i], "exp_window.bed"), quote = FALSE)
+}
+```
+

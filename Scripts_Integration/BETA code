@@ -1,0 +1,3 @@
+BETA plus -p "narrowPeak.bed" -e "expression_file" -k O -g hg38 --gs "reference_genome" -n "name_output_files" --info 8,3,7 --gname2 -o "output_folder" --df 0.05 --da 1 -c 0.01 -d 50000
+
+

@@ -1,0 +1,284 @@
+---
+title: "Peak_Anno_Figures"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(org.Hs.eg.db)
+library(VennDiagram)
+```
+
+```{r}
+# obtain narrowPeak files with colnames
+chip_dir <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/macs2')
+list_narrowPeaks_files <- list.files(path = chip_dir, pattern = "*.narrowPeak", full.names = TRUE)
+names(list_narrowPeaks_files) <- c("PAX8_OSLM1", "PAX8_786O", "PAX8_OSRC2", "PAX8_786M1A", "HNF1B_786M1A", "HNF1B_786O", "HNF1B_OSRC2", "HNF1B_OSLM1")
+```
+
+```{r}
+# obtain GRanges object
+obtain_GRanges <- function(data) {
+  readPeakFile(data)
+}
+
+GRanges_list <- vector("list", length = length(list_narrowPeaks_files))
+names(GRanges_list) <- names(list_narrowPeaks_files)
+for (i in seq_along(list_narrowPeaks_files)) {
+  GRanges_list[[i]] <- obtain_GRanges(list_narrowPeaks_files[[i]])
+}
+```
+
+```{r}
+# obtain annotation
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+# define TSS regions
+promoter <- getPromoters(TxDb = txdb, upstream = 3000, downstream = 3000)
+```
+
+```{r}
+# annotate peaks
+annotate_genes <- function(peaksFile) {
+ annotatePeak(peaksFile, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db") 
+}
+
+annot_list <- vector("list", length = length(list_narrowPeaks_files))
+names(annot_list) <- names(list_narrowPeaks_files)
+for (i in seq_along(list_narrowPeaks_files)) {
+  annot_list[[i]] <- annotate_genes(GRanges_list[[i]])
+}
+```
+
+Peak Annotation is performed by annotatePeak. User can define TSS (transcription start site) region, by default TSS is defined from -3kb to +3kb. The output of annotatePeak is csAnno instance. ChIPseeker provides as.GRanges to convert csAnno to GRanges instance, and as.data.frame to convert csAnno to  data.frame which can be exported to file by write.table.TxDb object contained transcript-related features of a particular genome. TxDb object should be passed for peak annotation.
+
+All the peak information contained in peakfile will be retained in the output of annotatePeak. The position and strand information of nearest genes are reported. The distance from peak to the TSS of its nearest gene is also reported. The genomic region of the peak is reported in annotation column. Since some annotation may overlap, ChIPseeker adopted the following priority in genomic annotation.
+
+Promoter
+5’ UTR
+3’ UTR
+Exon
+Intron
+Downstream
+Intergenic
+
+ChIPseeker also provides parameter genomicAnnotationPriority for user to prioritize this hierachy.
+
+annotatePeak report detail information when the annotation is Exon or Intron, for instance “Exon (uc002sbe.3/9736, exon 69 of 80)”, means that the peak is overlap with an Exon of transcript uc002sbe.3, and the corresponding Entrez gene ID is 9736 (Transcripts that belong to the same gene ID may differ in splice events), and this overlaped exon is the 69th exon of the 80 exons that this transcript uc002sbe.3 prossess.
+
+Parameter annoDb is optional, if provided, extra columns including SYMBOL, GENENAME, ENSEMBL/ENTREZID will be added. The geneId column in annotation output will be consistent with the geneID in TxDb. If it is ENTREZID, ENSEMBL will be added if annoDb is provided, while if it is ENSEMBL ID, ENTREZID will be added.
+
+```{r}
+# visualization with upsetplot combined with vennpie
+for (i in seq_along(annot_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(annot_list)[[i]], "_upsetvenn.png"), width = 5000, height = 5000, res = 300)
+  print(upsetplot(annot_list[[i]], vennpie=TRUE))
+  dev.off()
+}
+
+#visualization of TF-binding loci distribution relative to TSS
+list_peakAnno_PAX8 <-  list(PAX8_786.O = annot_list[["PAX8_786O"]], PAX8_786.M1A = annot_list[["PAX8_786M1A"]], PAX8_OS.RC.2 = annot_list[["PAX8_OSRC2"]], PAX8_OS.LM1 = annot_list[["PAX8_OSLM1"]])
+
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_TFbinding.png", width = 1500, height = 800, res = 300)
+plotDistToTSS(list_peakAnno_PAX8, title = "Distribution of TF-binding loci relative to TSS")
+dev.off()
+
+list_peakAnno_HNF1B <-  list(HNF1B_786.O = annot_list[["HNF1B_786O"]], HNF1B_786.M1A = annot_list[["HNF1B_786M1A"]], HNF1B_OS.RC.2 = annot_list[["HNF1B_OSRC2"]], HNF1B_OS.LM1 = annot_list[["HNF1B_OSLM1"]])
+
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/HNF1B_TFbinding.png", width = 1500, height = 800, res = 300)
+plotDistToTSS(list_peakAnno_HNF1B, title = "Distribution of TF-binding loci relative to TSS")
+dev.off()
+
+#visualization of feature distribution
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_Features2.png", width = 1500, height = 800, res = 300)
+plotAnnoBar(list_peakAnno_PAX8)
+dev.off()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/HNF1B_Features.png", width = 1500, height = 800, res = 300)
+plotAnnoBar(list_peakAnno_HNF1B)
+dev.off()
+```
+
+```{r}
+# intersection between cell lines with VennPlot
+names(list_peakAnno_PAX8) <- c("786-O", "786-M1A", "OS-RC-2", "OS-LM1")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_cellLines_overlap_Venn.png", width = 2000, height = 2000, res = 300)
+genes_PAX8 <- lapply(list_peakAnno_PAX8, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_PAX8)
+dev.off()
+
+names(list_peakAnno_HNF1B) <- c("786-O", "786-M1A", "OS-RC-2", "OS-LM1")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/HNF1b_cellLines_overlap_Venn.png", width = 2000, height = 2000, res = 300)
+genes_HNF1b <- lapply(list_peakAnno_HNF1B, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_HNF1b)
+dev.off()
+
+# intersection between PAX8 and HNF1b same cell line
+list_786.O <- list(annot_list[["PAX8_786O"]], annot_list[["HNF1B_786O"]])
+names(list_786.O) <- c("PAX8 786-0", "HNF1B 786-O")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1b_786O_overlap_Venn.png", width = 1200, height = 1200, res = 300)
+genes_786.O <- lapply(list_786.O, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_786.O)
+dev.off()
+
+list_786.M1A <- list(annot_list[["PAX8_786M1A"]], annot_list[["HNF1B_786M1A"]])
+names(list_786.M1A) <- c("PAX8 786-M1A", "HNF1B 786-M1A")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1b_786M1A_overlap_Venn.png", width = 1200, height = 1200, res = 300)
+genes_786.M1A <- lapply(list_786.M1A, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_786.M1A)
+dev.off()
+
+list_OS.RC2 <- list(annot_list[["PAX8_OSRC2"]], annot_list[["HNF1B_OSRC2"]])
+names(list_OS.RC2) <- c("PAX8 OS-RC-2", "HNF1B OS-RC-2")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1b_RC2_overlap_Venn.png", width = 1200, height = 1200, res = 300)
+genes_OS.RC2 <- lapply(list_OS.RC2, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_OS.RC2)
+dev.off()
+
+list_OS.LM1 <- list(annot_list[["PAX8_OSLM1"]], annot_list[["HNF1B_OSLM1"]])
+names(list_OS.LM1) <- c("PAX8 OS-LM1", "HNF1B OS-LM1")
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1b_LM1_overlap_Venn.png", width = 1200, height = 1200, res = 300)
+genes_OS.LM1 <- lapply(list_OS.LM1, function(i) as.data.frame(i)$SYMBOL)
+vennplot(genes_OS.LM1)
+dev.off()
+```
+
+# more beautiful venplots
+
+draw.quad.venn(area1, area2, area3, area4, n12, n13, n14, n23, n24,n34, n123, n124, n134, n234, n1234)
+
+```{r}
+
+# HNF1B: intersection cell lines
+# n1,2,3,4
+genes_HNF1B_786O <- length(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL)
+genes_HNF1B_786M1A <- length(as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL)
+genes_HNF1B_OSRC2 <- length(as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL)
+genes_HNF1B_OSLM1 <- length(as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL)
+
+# n12, n13, n14, n23, n24, n34
+genes_HNF1B_786O_786M1A <- length(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL))
+genes_HNF1B_786O_OSRC2 <- length(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL))
+genes_HNF1B_786O_OSLM1 <- length(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+genes_HNF1B_786M1A_OSRC2 <- length(intersect(as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL))
+genes_HNF1B_786M1A_OSLM1 <- length(intersect(as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+genes_HNF1B_OSRC2_OSLM1 <- length(intersect(as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+
+# n123, n124, n134, n234
+genes_HNF1B_786O_786M1A_OSRC2 <- length(intersect(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL))
+genes_HNF1B_786O_786M1A_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+genes_HNF1B_786O_OSRC2_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+genes_HNF1B_786M1A_OSRC2_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+
+# n1234
+genes_HNF1B_786O_786M1A_OSRC2_OSLM1 <- length(intersect(intersect(intersect(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+```
+
+```{r}
+# plot venn HNF1B 4 cell lines
+HNF1B_4CL <- draw.quad.venn(genes_HNF1B_786O, genes_HNF1B_786M1A, genes_HNF1B_OSRC2, genes_HNF1B_OSLM1, genes_HNF1B_786O_786M1A, genes_HNF1B_786O_OSRC2, genes_HNF1B_786O_OSLM1, genes_HNF1B_786M1A_OSRC2, genes_HNF1B_786M1A_OSLM1, genes_HNF1B_OSRC2_OSLM1, genes_HNF1B_786O_786M1A_OSRC2, genes_HNF1B_786O_786M1A_OSLM1, genes_HNF1B_786O_OSRC2_OSLM1, genes_HNF1B_786M1A_OSRC2_OSLM1, genes_HNF1B_786O_786M1A_OSRC2_OSLM1, fill = rep("lightblue", 4), alpha = 0.2, cex = 1.5, cat.cex = 1.5)
+
+#category = c("786-O", "786-M1A", "OS-RC-2", "OS-LM1")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_HNF1B_4CL.png", width = 1500, height = 1200, res = 300 )
+grid.draw(HNF1B_4CL)
+dev.off()
+```
+
+```{r}
+# PAX8: intersection cell lines
+# n1,2,3,4
+genes_PAX8_786O <- length(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL)
+genes_PAX8_786M1A <- length(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL)
+genes_PAX8_OSRC2 <- length(as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL)
+genes_PAX8_OSLM1 <- length(as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL)
+
+# n12, n13, n14, n23, n24, n34
+genes_PAX8_786O_786M1A <- length(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL))
+genes_PAX8_786O_OSRC2 <- length(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL))
+genes_PAX8_786O_OSLM1 <- length(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+genes_PAX8_786M1A_OSRC2 <- length(intersect(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL))
+genes_PAX8_786M1A_OSLM1 <- length(intersect(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+genes_PAX8_OSRC2_OSLM1 <- length(intersect(as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+
+# n123, n124, n134, n234
+genes_PAX8_786O_786M1A_OSRC2 <- length(intersect(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL))
+genes_PAX8_786O_786M1A_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+genes_PAX8_786O_OSRC2_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+genes_PAX8_786M1A_OSRC2_OSLM1 <- length(intersect(intersect(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL, as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+
+# n1234
+genes_PAX8_786O_786M1A_OSRC2_OSLM1 <- length(intersect(intersect(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL), as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL))
+```
+
+```{r}
+# plot venn PAX8 4 cell lines
+PAX8_4CL <- draw.quad.venn(genes_PAX8_786O, genes_PAX8_786M1A, genes_PAX8_OSRC2, genes_PAX8_OSLM1, genes_PAX8_786O_786M1A, genes_PAX8_786O_OSRC2, genes_PAX8_786O_OSLM1, genes_PAX8_786M1A_OSRC2, genes_PAX8_786M1A_OSLM1, genes_PAX8_OSRC2_OSLM1, genes_PAX8_786O_786M1A_OSRC2, genes_PAX8_786O_786M1A_OSLM1, genes_PAX8_786O_OSRC2_OSLM1, genes_PAX8_786M1A_OSRC2_OSLM1, genes_PAX8_786O_786M1A_OSRC2_OSLM1, fill = rep("aquamarine3", 4), alpha = 0.2, cex = 1.5, cat.cex = 1.5)
+
+#category = c("786-O", "786-M1A", "OS-RC-2", "OS-LM1")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_PAX8_4CL.png", width = 1500, height = 1200, res = 300 )
+grid.draw(PAX8_4CL)
+dev.off()
+```
+
+```{r}
+# calculate PAX8 and HNF1b correlation for each cell line
+
+# 786O
+genes_PAX8_786O <- length(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL)
+genes_HNF1B_786O <- length(as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL)
+genes_786O <- length(intersect(as.data.frame(annot_list[["PAX8_786O"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786O"]])$SYMBOL))
+
+# 786M1A
+genes_PAX8_786M1A <- length(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL)
+genes_HNF1B_786M1A <- length(as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL)
+genes_786M1A <- length(intersect(as.data.frame(annot_list[["PAX8_786M1A"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_786M1A"]])$SYMBOL))
+
+# OSRC2
+genes_PAX8_OSRC2 <- length(as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL)
+genes_HNF1B_OSRC2 <- length(as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL)
+genes_OSRC2 <- length(intersect(as.data.frame(annot_list[["PAX8_OSRC2"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSRC2"]])$SYMBOL))
+
+# OSLM1
+genes_PAX8_OSLM1 <- length(as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL)
+genes_HNF1B_OSLM1 <- length(as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL)
+genes_OSLM1 <- length(intersect(as.data.frame(annot_list[["PAX8_OSLM1"]])$SYMBOL, as.data.frame(annot_list[["HNF1B_OSLM1"]])$SYMBOL))
+
+```
+
+```{r}
+# plot PAX8 and HNF1b correlation for each cell line
+CL_786O <- draw.pairwise.venn(genes_PAX8_786O, genes_HNF1B_786O, genes_786O, fill = c("aquamarine3", "bisque"), alpha = 0.2, cex = 3, cat.cex = 2)
+
+# category = c("PAX8 786-O", "HNF1B 786-O")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_PAX8_HNF1B_786O.png", width = 1500, height = 1200, res = 300)
+grid.draw(CL_786O)
+dev.off()
+
+CL_786M1A <- draw.pairwise.venn(genes_PAX8_786M1A, genes_HNF1B_786M1A, genes_786M1A, fill = c("aquamarine3", "bisque"), alpha = 0.2, cex = 3, cat.cex = 2)
+
+# category = c("PAX8 786-M1A", "HNF1B 786-M1A")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_PAX8_HNF1B_786M1A.png", width = 1500, height = 1200, res = 300)
+grid.draw(CL_786M1A)
+dev.off()
+
+CL_OSRC2 <- draw.pairwise.venn(genes_PAX8_OSRC2, genes_HNF1B_OSRC2, genes_OSRC2, fill = c("aquamarine3", "bisque"), alpha = 0.2, cex = 3, cat.cex = 2)
+
+# category = c("PAX8 OS-RC2", "HNF1B OS-RC2")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_PAX8_HNF1B_OSRC2.png", width = 1500, height = 1200, res = 300)
+grid.draw(CL_OSRC2)
+dev.off()
+
+CL_OSLM1 <- draw.pairwise.venn(genes_PAX8_OSLM1, genes_HNF1B_OSLM1, genes_OSLM1, fill = c("aquamarine3", "bisque"), alpha = 0.2, cex = 3, cat.cex = 2)
+
+# category = c("PAX8 OSLM1", "HNF1B OSLM1")
+grid.newpage()
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/VennDiagram_PAX8_HNF1B_OSLM1.png", width = 1500, height = 1200, res = 300)
+grid.draw(CL_OSLM1)
+dev.off()
+```
+

@@ -1,0 +1,257 @@
+---
+title: "PAX8_listDEG_def"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(VennDiagram)
+```
+
+# Common DEG after PAX8 KD
+
+We are going to find the genes that are called differentially expressed (DE) by both constructs (shRNA 1503 and shRNA 786) and by both methods (edgeR and DESeq2)
+
+Construct 1503 is KD1 and 786 is KD2. 
+
+1. DESeq2
+
+```{r}
+# obtain files
+PAX8_DESeq2_786 <- read.delim('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_M1A_RNAseq_allGene_DESeq2_7861MA_786_7861MA_C.csv', sep = '\t')
+nrow(PAX8_DESeq2_786)
+PAX8_DESeq2_1503 <- read.delim('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_M1A_RNAseq_allGene_DESeq2_7861MA_1503_7861MA_C.csv', sep = '\t')
+nrow(PAX8_DESeq2_1503)
+```
+
+
+```{r}
+# function to filter DE genes up (logFC > 0.50) and down (logFC < 0.50) and keep only dif expressed genes padj < 0.05
+
+filter_DE_genes_up <- function(df) {
+  df_filtered <- df %>% 
+    filter(padj <= 0.05 & log2FoldChange >= 0.50)
+}
+
+filter_DE_genes_down <- function(df) {
+  df_filtered <- df %>% 
+    filter(padj <= 0.05 & log2FoldChange <= -0.50)
+}
+
+PAX8_DESeq2_786_DEG_up <- filter_DE_genes_up(PAX8_DESeq2_786)
+PAX8_DESeq2_1503_DEG_up <- filter_DE_genes_up(PAX8_DESeq2_1503)
+
+PAX8_DESeq2_786_DEG_down <- filter_DE_genes_down(PAX8_DESeq2_786)
+PAX8_DESeq2_1503_DEG_down <- filter_DE_genes_down(PAX8_DESeq2_1503)
+
+# count % of DEG genes from the total
+
+(PAX8_DESeq2_786_DEG_up_n <- nrow(PAX8_DESeq2_786_DEG_up))
+(PAX8_DESeq2_786_DEG_up_porc <- PAX8_DESeq2_786_DEG_up_n/nrow(PAX8_DESeq2_786)*100)
+
+(PAX8_DESeq2_786_DEG_down_n <- nrow(PAX8_DESeq2_786_DEG_down))
+(PAX8_DESeq2_786_DEG_down_porc <- PAX8_DESeq2_786_DEG_down_n/nrow(PAX8_DESeq2_786)*100)
+
+
+(PAX8_DESeq2_1503_DEG_up_n <- nrow(PAX8_DESeq2_1503_DEG_up))
+(PAX8_DESeq2_1503_DEG_up_porc <- PAX8_DESeq2_1503_DEG_up_n/nrow(PAX8_DESeq2_1503)*100)
+  
+(PAX8_DESeq2_1503_DEG_down_n <- nrow(PAX8_DESeq2_1503_DEG_down))
+(PAX8_DESeq2_1503_DEG_down_porc <- PAX8_DESeq2_1503_DEG_down_n/nrow(PAX8_DESeq2_1503)*100)
+```
+
+```{r}
+# obtain intersect of DEG obtained in two constructs
+PAX8_DESeq2_both_DEG_up <- inner_join(PAX8_DESeq2_786_DEG_up, PAX8_DESeq2_1503_DEG_up, by = 'GeneID')
+PAX8_DESeq2_both_DEG_down <- inner_join(PAX8_DESeq2_786_DEG_down, PAX8_DESeq2_1503_DEG_down, by = 'GeneID')
+```
+
+2. edgeR
+
+```{r}
+# obtain files
+PAX8_edgeRLRT_786 <- read.delim('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_M1A_RNAseq_allGene_glmLRT_7861MA_786_7861MA_C.csv', sep = '\t')
+PAX8_edgeRLRT_1503 <- read.delim('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_M1A_RNAseq_allGene_glmLRT_7861MA_1503_7861MA_C.csv', sep = '\t')
+```
+
+```{r}
+# function to filter DE genes up (logFC > 0.50) and down (logFC < 0.50) and keep only dif expressed genes padj < 0.05 
+filter_DE_genes_up2 <- function(df) {
+  df_filtered <- df %>% 
+    filter(FDR <= 0.05 & logFC >= 0.50)
+}
+
+filter_DE_genes_down2 <- function(df) {
+  df_filtered <- df %>% 
+    filter(FDR <= 0.05 & logFC <= -0.50)
+}
+
+PAX8_edgeRLRT_786_DEG_up <- filter_DE_genes_up2(PAX8_edgeRLRT_786)
+PAX8_edgeRLRT_1503_DEG_up <- filter_DE_genes_up2(PAX8_edgeRLRT_1503)
+
+PAX8_edgeRLRT_786_DEG_down <- filter_DE_genes_down2(PAX8_edgeRLRT_786)
+PAX8_edgeRLRT_1503_DEG_down <- filter_DE_genes_down2(PAX8_edgeRLRT_1503)
+
+# count % of DEG genes from the total
+
+(PAX8_edgeRLRT_786_DEG_up_n <- nrow(PAX8_edgeRLRT_786_DEG_up))
+(PAX8_edgeRLRT_786_DEG_up_porc <- PAX8_edgeRLRT_786_DEG_up_n/nrow(PAX8_edgeRLRT_786)*100)
+
+(PAX8_edgeRLRT_786_DEG_down_n <- nrow(PAX8_edgeRLRT_786_DEG_down))
+(PAX8_edgeRLRT_786_DEG_down_porc <- PAX8_edgeRLRT_786_DEG_down_n/nrow(PAX8_edgeRLRT_786)*100)
+
+
+(PAX8_edgeRLRT_1503_DEG_up_n <- nrow(PAX8_edgeRLRT_1503_DEG_up))
+(PAX8_edgeRLRT_1503_DEG_up_porc <- PAX8_edgeRLRT_1503_DEG_up_n/nrow(PAX8_edgeRLRT_1503)*100)
+  
+(PAX8_edgeRLRT_1503_DEG_down_n <- nrow(PAX8_edgeRLRT_1503_DEG_down))
+(PAX8_edgeRLRT_1503_DEG_down_porc <- PAX8_edgeRLRT_1503_DEG_down_n/nrow(PAX8_edgeRLRT_1503)*100)
+```
+
+```{r}
+# obtain intersect of edgeR LRT obtained in two constructs
+PAX8_edgeRLRT_both_DEG_up <- inner_join(PAX8_edgeRLRT_786_DEG_up, PAX8_edgeRLRT_1503_DEG_up, by = 'GeneID')
+PAX8_edgeRLRT_both_DEG_down <- inner_join(PAX8_edgeRLRT_786_DEG_down, PAX8_edgeRLRT_1503_DEG_down, by = 'GeneID')
+```
+
+3. Combine results from edgeR and DESeq2
+
+```{r}
+# obtain intersect of DEG and edgeR results
+PAX8_both_DEG_up <- inner_join(PAX8_edgeRLRT_both_DEG_up, PAX8_DESeq2_both_DEG_up, by = 'GeneID')
+PAX8_both_DEG_down <- inner_join(PAX8_edgeRLRT_both_DEG_down, PAX8_DESeq2_both_DEG_down, by = 'GeneID')
+```
+
+```{r}
+# combine results and write output
+PAX8_both_DEG <- rbind(PAX8_both_DEG_up, PAX8_both_DEG_down)
+#write_csv(PAX8_both_DEG, '/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_DEG.csv')
+```
+
+4. Obtain Venn Plots
+
+Note: draw.quad.venn(area1, area2, area3, area4, n12, n13, n14, n23, n24,
+n34, n123, n124, n134, n234, n1234)
+
+```{r}
+# obtain lists of files for Venn Plot
+list_DEG_up <- list(PAX8_DESeq2_1503_DEG_up = PAX8_DESeq2_1503_DEG_up, PAX8_DESeq2_786_DEG_up = PAX8_DESeq2_786_DEG_up, PAX8_edgeRLRT_1503_DEG_up = PAX8_edgeRLRT_1503_DEG_up, PAX8_edgeRLRT_786_DEG_up = PAX8_edgeRLRT_786_DEG_up)
+
+list_DEG_down <- list(PAX8_DESeq2_1503_DEG_down = PAX8_DESeq2_1503_DEG_down, PAX8_DESeq2_786_DEG_down = PAX8_DESeq2_786_DEG_down, PAX8_edgeRLRT_1503_DEG_down = PAX8_edgeRLRT_1503_DEG_down, PAX8_edgeRLRT_786_DEG_down = PAX8_edgeRLRT_786_DEG_down)
+
+# functions
+
+do_inner_join_2 <- function(df1, df2) {
+  inner_join(df1, df2, by = "GeneID")
+}
+
+do_inner_join_3 <- function (df1, df2, df3) {
+  inner_join(inner_join(df1, df2, by = "GeneID"), df3, by = "GeneID")
+}
+
+do_inner_join_4 <- function (df1, df2, df3, df4) {
+  inner_join(inner_join(inner_join(df1, df2, by = "GeneID"), df3, by = "GeneID"), df4, by = "GeneID")
+}
+  
+num_bind_up_down <- function(db_up, db_down) {
+  n <- nrow(rbind(db_up, db_down))
+  return(n)
+}
+
+#n1, 2, 3, 4
+list_area_1 <- vector("list", length = 4)
+for (i in seq_along(list_area_1)) {
+  list_area_1[[i]] <- num_bind_up_down(list_DEG_up[[i]], list_DEG_down[[i]])
+}
+names(list_area_1) <- str_remove(names(list_DEG_up), "_up")
+
+# n12, n13, n14, n23, n24, n34
+area_2_matrix <- matrix(c(1,1,1,2,2,3,2,3,4,3,4,4), ncol = 2)
+
+list_area_2 <- vector("list", length = 6)
+for (i in seq_along(list_area_2)) {
+  DEG_up <- do_inner_join_2(list_DEG_up[[area_2_matrix[i,1]]], list_DEG_up[[area_2_matrix[i,2]]])
+  DEG_down <- do_inner_join_2(list_DEG_down[[area_2_matrix[i,1]]], list_DEG_down[[area_2_matrix[i,2]]])
+  list_area_2[[i]] <- num_bind_up_down(DEG_up, DEG_down)
+  names(list_area_2)[[i]] <- paste0(str_remove(names(list_DEG_up)[[area_2_matrix[i,1]]], "_up"), "_", str_remove(names(list_DEG_up)[[area_2_matrix[i,2]]], "_up"))
+  }
+
+# n123, n124, n134, n234
+area_3_matrix <- matrix(c(1,1,1,2,2,2,3,3,3,4,4,4), ncol = 3)
+
+list_area_3 <- vector("list", length = 4)
+for (i in seq_along(list_area_3)) {
+  DEG_up <- do_inner_join_3(list_DEG_up[[area_3_matrix[i,1]]], list_DEG_up[[area_3_matrix[i,2]]], list_DEG_up[[area_3_matrix[i,3]]])
+  DEG_down <- do_inner_join_3(list_DEG_down[[area_3_matrix[i,1]]], list_DEG_down[[area_3_matrix[i,2]]], list_DEG_down[[area_3_matrix[i,3]]])
+  list_area_3[[i]] <- num_bind_up_down(DEG_up, DEG_down)
+  names(list_area_3)[[i]] <- paste0(str_remove(names(list_DEG_up)[[area_3_matrix[i,1]]], "_up"), "_", str_remove(names(list_DEG_up)[[area_3_matrix[i,2]]], "_up"), "_", str_remove(names(list_DEG_up)[[area_3_matrix[i,3]]], "_up"))
+}
+
+# n1234
+area_4_matrix <- matrix(c(1,2,3,4), ncol = 4)
+
+DEG_up_4 <- do_inner_join_4(list_DEG_up[[area_4_matrix[1,1]]], list_DEG_up[[area_4_matrix[1,2]]], list_DEG_up[[area_4_matrix[1,3]]], list_DEG_up[[area_4_matrix[1,4]]])
+DEG_down_4 <- do_inner_join_4(list_DEG_down[[area_4_matrix[1,1]]], list_DEG_down[[area_4_matrix[1,2]]], list_DEG_down[[area_4_matrix[1,3]]], list_DEG_down[[area_4_matrix[1,4]]])
+area4 <- num_bind_up_down(DEG_up_4, DEG_down_4)
+
+```
+
+Note: draw.quad.venn(area1, area2, area3, area4, n12, n13, n14, n23, n24,
+n34, n123, n124, n134, n234, n1234)
+
+```{r}
+# plot quadruple Venn Diagram
+grid.newpage()
+venn_PAX8_both_constructs_tools <- draw.quad.venn(list_area_1[[1]], list_area_1[[2]], list_area_1[[3]], list_area_1[[4]], list_area_2[[1]], list_area_2[[2]], list_area_2[[3]], list_area_2[[4]], list_area_2[[5]], list_area_2[[6]], list_area_3[[1]], list_area_3[[2]], list_area_3[[3]], list_area_3[[4]], area4, fill = c("lightpink", "lightpink", "lightblue", "lightblue"),  cat.cex = 2, alpha = 0.2, cex = 2)
+
+# category = c("KD-1 DESeq2", "KD-2 DESeq2", "KD-1 edgeR", "KD-2 edgeR")
+
+# save diagram
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/venn_PAX8_both_constructs_tools_def.png", width = 2000, height = 1300, res = 200)
+grid.draw(venn_PAX8_both_constructs_tools)
+dev.off()
+```
+
+```{r}
+# plot pairwise Venn Diagrams
+
+# compare KD1 and KD2 in DESeq2
+grid.newpage()
+venn_PAX8_both_constructs_DESeq2 <- draw.pairwise.venn(list_area_1[[1]], list_area_1[[2]], list_area_2[[1]], fill = c("lightpink", "lightpink"),  cat.cex = 2, alpha = 0.2, cex = 2)
+# category = c("KD-1 DESeq2", "KD-2 DESeq2")
+
+# save diagram
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/venn_PAX8_KD1_KD2_DESeq2_def.png", width = 2000, height = 1300, res = 200)
+grid.draw(venn_PAX8_both_constructs_DESeq2)
+dev.off()
+
+# compare KD1 and KD2 in edgeR
+grid.newpage()
+venn_PAX8_both_constructs_edgeR <- draw.pairwise.venn(list_area_1[[3]], list_area_1[[4]], list_area_2[[6]], fill = c("lightblue", "lightblue"),  cat.cex = 2, alpha = 0.2, cex = 2)
+# category = c("KD-1 edgeR", "KD-2 edgeR")
+
+# save diagram
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/venn_PAX8_KD1_KD2_edgeR_def.png", width = 2000, height = 1300, res = 200)
+grid.draw(venn_PAX8_both_constructs_edgeR)
+dev.off()
+
+# compare KD1 DESeq2 and KD1 in edgeR
+grid.newpage()
+venn_PAX8_KD1_DESeq2_edgeR <- draw.pairwise.venn(list_area_1[[1]], list_area_1[[3]], list_area_2[[2]], fill = c("lightpink", "lightblue"),  cat.cex = 2, alpha = 0.2, cex = 2)
+# category = c("KD-1 DESeq2", "KD-1 edgeR")
+
+# save diagram
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/venn_PAX8_KD1_DESeq2_edgeR_def.png", width = 2000, height = 1300, res = 200)
+grid.draw(venn_PAX8_KD1_DESeq2_edgeR)
+dev.off()
+
+# compare KD2 DESeq2 and KD2 in edgeR
+grid.newpage()
+venn_PAX8_KD2_DESeq2_edgeR <- draw.pairwise.venn(list_area_1[[2]], list_area_1[[4]], list_area_2[[5]], fill = c("lightpink", "lightblue"),  cat.cex = 2, alpha = 0.2, cex = 2)
+# category = c("KD-2 DESeq2", "KD-2 edgeR")
+
+# save diagram
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/venn_PAX8_KD2_DESeq2_edgeR_def.png", width = 2000, height = 1300, res = 200)
+grid.draw(venn_PAX8_KD2_DESeq2_edgeR)
+dev.off()
+```

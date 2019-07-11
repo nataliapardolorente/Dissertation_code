@@ -1,0 +1,489 @@
+---
+title: "ChIP_peak_annotation"
+output: html_document
+date: 2019-03-11
+---
+
+```{r setup, include=FALSE}
+# load libraries
+library(tidyverse)
+library(ChIPpeakAnno)
+library(EnsDb.Hsapiens.v86)
+library(org.Hs.eg.db)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(ChIPseeker)
+library(clusterProfiler)
+```
+
+```{r}
+# obtain  filenames
+dir <- c('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/macs2/')
+narrowPeaks_files <- list.files(path=dir, pattern="*.narrowPeak", full.names=TRUE, recursive=FALSE)
+names(narrowPeaks_files) <- c("PAX8_OSLM1_peaks", "PAX8_786O_peaks", "PAX8_OSRC2_peaks", "PAX8_786M1A_peaks", "HNF1B_786M1A_peaks", "HNF1B_786O_peaks", "HNF1B_OSRC2_peaks", "HNF1B_OSLM1_peaks")
+```
+
+# Peak annotation with ChIPpeakAnno
+
+The annotation of ChIP-Seq peaks becomes streamlined into four major steps:
+
+1 Read peak data with toGRanges 
+2 Generate annotation data with toGRanges 
+3 Annotate peaks with annotatePeakInBatch 
+4 Add additional informations with addGeneIDs
+
+## Annotate peak data with TxDb
+
+Step 1: Convert peak data to GRanges
+
+```{r}
+# convert narrowPeak files to GRanges
+convert_Granges <- function(data) {
+  ChIPpeakAnno::toGRanges(data, format = "narrowPeak")
+}
+
+GRanges_list <- vector("list", length = length(narrowPeaks_files))
+names(GRanges_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ GRanges_list[[i]] <- convert_Granges(narrowPeaks_files[[i]])
+}
+```
+
+Step 2: Annotate peak data with promoters provided by TxDb
+
+```{r}
+# prepare annot data
+annotData_TxDb <- toGRanges(TxDb.Hsapiens.UCSC.hg38.knownGene)
+annotData_TxDb[1:2]
+```
+
+```{r}
+# annotate the peaks in proximal promoter 2500 bp
+annot_peaks_proxprom2500 <- function(peaks) {
+  # keep the seqnames in the same style
+  seqlevelsStyle(peaks) <- seqlevelsStyle(annotData_TxDb)
+  # annotate peaks  within 2500b upstream and downstream of TSS within the gene body
+  annot <- annotatePeakInBatch(peaks, AnnotationData=annotData_TxDb, output = "both", FeatureLocForDistance = "TSS", bindingRegion=c(-2500, 2500))
+}
+
+annot_proxprom2500_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_proxprom2500_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_proxprom2500_PeakAnno_list[[i]] <- annot_peaks_proxprom2500(GRanges_list[[i]])
+}
+
+# annotate the peaks in proximal promoter 5000 bp
+annot_peaks_proxprom5000 <- function(peaks) {
+  # keep the seqnames in the same style
+  seqlevelsStyle(peaks) <- seqlevelsStyle(annotData_TxDb)
+  # annotate peaks  within 2500b upstream and downstream of TSS within the gene body
+  annot <- annotatePeakInBatch(peaks, AnnotationData=annotData_TxDb, output = "both", FeatureLocForDistance = "TSS", bindingRegion=c(-5000, 5000))
+}
+
+annot_proxprom5000_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_proxprom5000_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_proxprom5000_PeakAnno_list[[i]] <- annot_peaks_proxprom5000(GRanges_list[[i]])
+}
+```
+
+```{r}
+# annotate the peaks in core promoter 1000 bp
+annot_peaks_coreprom1000 <- function(peaks) {
+  # keep the seqnames in the same style
+  seqlevelsStyle(peaks) <- seqlevelsStyle(annotData_TxDb)
+  # annotate peaks  within 1000bb upstream and downstream of TSS within the gene body
+  annot <- annotatePeakInBatch(peaks, AnnotationData=annotData_TxDb, output = "both", FeatureLocForDistance = "TSS", bindingRegion=c(-1000, 1000))
+}
+
+annot_coreprom1000_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_coreprom1000_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_coreprom1000_PeakAnno_list[[i]] <- annot_peaks_coreprom1000(GRanges_list[[i]])
+ }
+```
+
+
+```{r}
+# annotate the peaks including enhancer regions 100kb
+annot_peaks_enhancer100kb <- function(peaks) {
+  # keep the seqnames in the same style
+  seqlevelsStyle(peaks) <- seqlevelsStyle(annotData_TxDb)
+  # annotate peaks  within 100kb upstream and up to 100kb downstream of TSS within the gene body
+  annot <- annotatePeakInBatch(peaks, AnnotationData=annotData_TxDb, output = "both", FeatureLocForDistance = "TSS", bindingRegion=c(-100000, 100000))
+}
+
+annot_enhancer100kb_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_enhancer100kb_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_enhancer100kb_PeakAnno_list[[i]] <- annot_peaks_enhancer100kb(GRanges_list[[i]])
+ }
+```
+```{r}
+# remove lines with NA
+remove_NAs <- function(annot) {
+  annot <- as_tibble(annot) %>% drop_na()
+}
+
+for (i in 1:length(annot_proxprom2500_PeakAnno_list)) {
+ annot_proxprom2500_PeakAnno_list[[i]] <- remove_NAs(annot_proxprom2500_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_proxprom5000_PeakAnno_list)) {
+ annot_proxprom5000_PeakAnno_list[[i]] <- remove_NAs(annot_proxprom5000_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_coreprom1000_PeakAnno_list)) {
+ annot_coreprom1000_PeakAnno_list[[i]] <- remove_NAs(annot_coreprom1000_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_enhancer100kb_PeakAnno_list)) {
+ annot_enhancer100kb_PeakAnno_list[[i]] <- remove_NAs(annot_enhancer100kb_PeakAnno_list[[i]])
+ }
+
+```
+
+```{r}
+# add gene IDs
+add_geneIDs <- function(annot) {
+  annot$symbol <- xget(annot$feature, org.Hs.egSYMBOL)
+  annot
+}
+ 
+for (i in 1:length(annot_proxprom2500_PeakAnno_list)) {
+ annot_proxprom2500_PeakAnno_list[[i]] <- add_geneIDs(annot_proxprom2500_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_proxprom5000_PeakAnno_list)) {
+ annot_proxprom5000_PeakAnno_list[[i]] <- add_geneIDs(annot_proxprom5000_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_coreprom1000_PeakAnno_list)) {
+ annot_coreprom1000_PeakAnno_list[[i]] <- add_geneIDs(annot_coreprom1000_PeakAnno_list[[i]])
+ }
+
+for (i in 1:length(annot_enhancer100kb_PeakAnno_list)) {
+ annot_enhancer100kb_PeakAnno_list[[i]] <- add_geneIDs(annot_enhancer100kb_PeakAnno_list[[i]])
+}
+
+```
+
+```{r}
+# convert to dataframe 
+convert_annot_df <- function(annot) {
+  annot <- as_tibble(annot)
+  annot
+}
+
+annot_proxprom2500_df_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_proxprom2500_df_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_proxprom2500_df_PeakAnno_list[[i]] <- convert_annot_df(annot_proxprom2500_PeakAnno_list[[i]])
+}
+
+annot_proxprom5000_df_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_proxprom5000_df_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_proxprom5000_df_PeakAnno_list[[i]] <- convert_annot_df(annot_proxprom5000_PeakAnno_list[[i]])
+}
+
+annot_coreprom1000_df_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_coreprom1000_df_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_coreprom1000_df_PeakAnno_list[[i]] <- convert_annot_df(annot_coreprom1000_PeakAnno_list[[i]])
+}
+
+annot_enhancer100kb_df_PeakAnno_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_enhancer100kb_df_PeakAnno_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_enhancer100kb_df_PeakAnno_list[[i]] <- convert_annot_df(annot_enhancer100kb_PeakAnno_list[[i]])
+}
+
+
+# export
+
+for (i in 1:length(annot_proxprom2500_df_PeakAnno_list)) {
+  write_csv(annot_proxprom2500_df_PeakAnno_list[[i]], paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPPeakAnno/', names(annot_proxprom2500_df_PeakAnno_list)[[i]], 'proxprom2500.csv'))
+}
+
+for (i in 1:length(annot_proxprom5000_df_PeakAnno_list)) {
+  write_csv(annot_proxprom5000_df_PeakAnno_list[[i]], paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPPeakAnno/', names(annot_proxprom5000_df_PeakAnno_list)[[i]], 'proxprom5000.csv'))
+}
+
+for (i in 1:length(annot_coreprom1000_df_PeakAnno_list)) {
+  write_csv(annot_coreprom1000_df_PeakAnno_list[[i]], paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPPeakAnno/', names(annot_coreprom1000_df_PeakAnno_list)[[i]], 'coreprom1000.csv'))
+}
+
+for (i in 1:length(annot_enhancer100kb_df_PeakAnno_list)) {
+  write_csv(annot_enhancer100kb_df_PeakAnno_list[[i]], paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPPeakAnno/', names(annot_enhancer100kb_df_PeakAnno_list)[[i]], 'enhancer100kb.csv'))
+}
+```
+
+# Annotation with ChIPseeker
+
+## ChIP profiling
+
+ChIPseeker provides readPeakFile to load the peak and store in GRanges object. We already have peaks in the form of GRanges object.
+
+1. ChIP peaks coverage plot
+
+After peak calling, we would like to know the peak locations over the whole genome, covplot function calculates the coverage of peak regions over chromosomes and generate a figure to visualize. GRangesList is also supported and can be used to compare coverage of multiple bed files.
+
+Note: png() need print in a loop.
+
+```{r}
+# obtain coverage plots for all files
+for (i in seq_along(GRanges_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(GRanges_list)[i], "_covplot.png"))
+  plot <- covplot(GRanges_list[[i]])
+  print(plot)
+  dev.off()
+}
+```
+
+2. Profile of ChIP peaks binding to TSS regions
+
+First of all, for calculating the profile of ChIP peaks binding to TSS regions, we should prepare the TSS regions, which are defined as the flanking sequence of the TSS sites. Then align the peaks that are mapping to these regions, and generate the tagMatrix. And then, generate the heatmap. 
+
+```{r}
+# obtain promoters
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+prox_promoter <- getPromoters(TxDb = txdb, upstream = 2500, downstream = 2500)
+core_promoter <- getPromoters(TxDb = txdb, upstream = 1000, downstream = 1000)
+```
+
+```{r}
+# obtain heatmap of ChIP binding to core promoters
+for (i in seq_along(GRanges_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(GRanges_list)[i], "_heatmap_coreprom1000.png"))
+  tagMatrix <- getTagMatrix(GRanges_list[[i]], windows = core_promoter)
+  plot <- tagHeatmap(tagMatrix, xlim=c(-1000, 1000), color="red")
+  print(plot) 
+  dev.off()
+}
+
+# obtain heatmap of ChIP binding to proximal promoters
+for (i in seq_along(GRanges_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(GRanges_list)[i], "_heatmap_proxprom2500.png"))
+  tagMatrix <- getTagMatrix(GRanges_list[[i]], windows = prox_promoter)
+  plot <- tagHeatmap(tagMatrix, xlim=c(-2500, 2500), color="red")
+  print(plot) 
+  dev.off()
+}
+```
+
+3. Average Profile of ChIP peaks binding to TSS region
+
+```{r}
+# obtain average profile of ChIP peaks binding to core promoter
+for (i in seq_along(GRanges_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(GRanges_list)[i], "_AvgProf_TSS_coreprom1000.png"))
+  tagMatrix <- getTagMatrix(GRanges_list[[i]], windows = core_promoter)
+  plot <- plotAvgProf(tagMatrix, xlim=c(-1000, 1000), xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency", conf = 0.95, resample = 1000)
+  print(plot)
+  dev.off()
+}
+
+# obtain average profile of ChIP peaks binding to proximal promoter
+for (i in seq_along(GRanges_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(GRanges_list)[i], "_AvgProf_TSS_proxprom2500.png"))
+  tagMatrix <- getTagMatrix(GRanges_list[[i]], windows = prox_promoter)
+  plot <- plotAvgProf(tagMatrix, xlim=c(-2500, 2500), xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency", conf = 0.95, resample = 1000)
+  print(plot)
+  dev.off()
+}
+```
+
+## Peak Annotation
+
+Peak Annotation is performed by annotatePeak. User can define TSS (transcription start site) region, by default TSS is defined from -3kb to +3kb. The output of annotatePeak is csAnno instance. ChIPseeker provides as.GRanges to convert csAnno to GRanges instance, and as.data.frame to convert csAnno to data.frame which can be exported to file by write.table.
+
+All the peak information contained in peakfile will be retained in the output of annotatePeak. The position and strand information of nearest genes are reported. The distance from peak to the TSS of its nearest gene is also reported. The genomic region of the peak is reported in annotation column. Since some annotation may overlap, ChIPseeker adopted the following priority in genomic annotation.
+
+    Promoter
+    5’ UTR
+    3’ UTR
+    Exon
+    Intron
+    Downstream
+    Intergenic
+
+ChIPseeker also provides parameter genomicAnnotationPriority for user to prioritize this hierachy.
+
+Parameter annoDb is optional, if provided, extra columns including SYMBOL, GENENAME, ENSEMBL/ENTREZID will be added. The geneId column in annotation output will be consistent with the geneID in TxDb. If it is ENTREZID, ENSEMBL will be added if annoDb is provided, while if it is ENSEMBL ID, ENTREZID will be added.
+
+```{r}
+# annotation for peaks detected in the core promoter 1000bp
+annot_peaks_seeker_coreprom1000 <- function(peaks) {
+   annotatePeak(peaks, tssRegion=c(-1000, 1000), TxDb=txdb, annoDb="org.Hs.eg.db")
+}
+
+annot_coreprom1000_seeker_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_coreprom1000_seeker_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_coreprom1000_seeker_list[[i]] <- annot_peaks_seeker_coreprom1000(GRanges_list[[i]])
+}
+
+# annotation for peaks detected in the proximal promoter 2500bp
+annot_peaks_seeker_proxprom2500 <- function(peaks) {
+   annotatePeak(peaks, tssRegion=c(-2500, 2500), TxDb=txdb, annoDb="org.Hs.eg.db")
+}
+
+annot_proxprom2500_seeker_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_proxprom2500_seeker_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_proxprom2500_seeker_list[[i]] <- annot_peaks_seeker_proxprom2500(GRanges_list[[i]])
+}
+
+# annotation for peaks detected in enhancers 150kb
+annot_peaks_seeker_enhancer150kb <- function(peaks) {
+   annotatePeak(peaks, tssRegion=c(-150000, 150000), TxDb=txdb, annoDb="org.Hs.eg.db")
+}
+
+annot_enhancer150kb_seeker_list <- vector("list", length = length(narrowPeaks_files))
+names(annot_enhancer150kb_seeker_list) <- names(narrowPeaks_files) 
+
+for (i in 1:length(narrowPeaks_files)) {
+ annot_enhancer150kb_seeker_list[[i]] <- annot_peaks_seeker_enhancer150kb(GRanges_list[[i]])
+}
+```
+
+
+```{r}
+# write output
+
+for (i in 1:length(annot_proxprom2500_seeker_list)) {
+  write_csv(as.data.frame(annot_proxprom2500_seeker_list[[i]]), paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPseeker/', names(annot_proxprom2500_seeker_list)[[i]], 'proxprom2500.csv'))
+}
+
+for (i in 1:length(annot_coreprom1000_seeker_list)) {
+  write_csv(as.data.frame(annot_coreprom1000_seeker_list[[i]]), paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPseeker/', names(annot_coreprom1000_seeker_list)[[i]], 'coreprom1000.csv'))
+}
+
+for (i in 1:length(annot_enhancer150kb_seeker_list)) {
+  write_csv(as.data.frame(annot_enhancer150kb_seeker_list[[i]]), paste0('/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPseeker/', names(annot_enhancer150kb_seeker_list)[[i]], 'enhancer150kb.csv'))
+}
+
+```
+
+## Visualize Genomic Annotation
+
+To annotate the location of a given peak in terms of genomic features, annotatePeak assigns peaks to genomic annotation in “annotation” column of the output, which includes whether a peak is in the TSS, Exon, 5’ UTR, 3’ UTR, Intronic or Intergenic. Many researchers are very interesting in these annotations. TSS region can be defined by user and annotatePeak output in details of which exon/intron of which genes as illustrated in previous section.
+Since some annotation overlap, user may interested to view the full annotation with their overlap.
+
+1. Upset Vennpie
+
+We can combine vennpie with upsetplot by setting vennpie = TRUE.
+
+```{r}
+
+# obtain upset plot (annotation enhancer 150 kb)
+for (i in seq_along(annot_enhancer150kb_seeker_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(annot_enhancer150kb_seeker_list)[i], "_upset_venn.png"))
+  plot <- upsetplot(annot_enhancer150kb_seeker_list[[i]])
+  print(plot)
+  dev.off()
+}
+
+```
+
+2. Visualize distribution of TF-binding loci relative to TSS
+
+The distance from the peak (binding site) to the TSS of the nearest gene is calculated by annotatePeak and reported in the output. We provide plotDistToTSS to calculate the percentage of binding sites upstream and downstream from the TSS of the nearest genes, and visualize the distribution.
+
+```{r}
+# plot distribution of TF-binding loci relative to TSS (annotation enhancer 150 kb)
+for (i in seq_along(annot_enhancer150kb_seeker_list)) {
+  png(paste0("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/", names(annot_enhancer150kb_seeker_list)[i], "_DistToTSS.png"))
+  plot <- plotDistToTSS(annot_enhancer150kb_seeker_list[[i]],
+              title="Distribution of transcription factor-binding loci\nrelative to TSS")
+  print(plot)
+  dev.off()
+}
+
+```
+
+## Overlap of peaks and annotated genes
+
+User may want to compare the overlap peaks of replicate experiments or from different experiments. ChIPseeker provides peak2GRanges that can read peak file and stored in GRanges object. Several files can be read simultaneously using lapply, and then passed to vennplot to calculate their overlap and draw venn plot. vennplot accept a list of object, can be a list of GRanges or a list of vector.
+
+First we look at how many genes overlap for the different cell lines with the same TF.
+
+```{r}
+# overlap same TF in different cell lines (annotation core promoter 1000bp)
+HNF1B_annot <- annot_coreprom1000_seeker_list[5:8]
+names(HNF1B_annot) <- names(annot_coreprom1000_seeker_list)[5:8]
+
+genes_HNF1B <- lapply(HNF1B_annot, function(i) as.data.frame(i)$geneId)
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/HNF1B_cellLines_overlap_Venn.png")
+vennplot(genes_HNF1B)
+dev.off()
+
+PAX8_annot <- annot_coreprom1000_seeker_list[1:4]
+names(PAX8_annot) <- names(annot_coreprom1000_seeker_list)[1:4]
+genes_PAX8 <- lapply(PAX8_annot, function(i) as.data.frame(i)$geneId)
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_cellLines_overlap_Venn.png")
+vennplot(genes_PAX8)
+dev.off()
+```
+
+
+Then we consider both TF together to see if they regulate the same targets. Note: as 8 dimensions Venn Diagrams are not supported we compare metastatic and non-metastatic cell lines separated.
+
+```{r}
+
+# overlap PAX8 and HNF1B in metastatic cell lines
+met_annot <- annot_coreprom1000_seeker_list[c("PAX8_786M1A_peaks", "PAX8_OSLM1_peaks", "HNF1B_786M1A_peaks", "HNF1B_OSLM1_peaks")]
+genes_met <- lapply(met_annot, function(i) as.data.frame(i)$geneId)
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1B_overlap_metCL_Venn.png")
+vennplot(genes_met)
+dev.off()
+
+# overlap PAX8 and HNF1B in non-metastatic cell lines
+nonmet_annot <- annot_coreprom1000_seeker_list[c("PAX8_7860_peaks", "PAX8_OSRC2_peaks", "HNF1B_7860_peaks", "HNF1B_OSRC2_peaks")]
+genes_nonmet <- lapply(nonmet_annot, function(i) as.data.frame(i)$geneId)
+png("/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Plots/PAX8_HNF1B_overlap_nonmetCL_Venn.png")
+vennplot(genes_nonmet)
+dev.off()
+```
+
+
+Statistical testing of ChIP seq overlap: Overlap is very important, if two ChIP experiment by two different proteins overlap in a large fraction of their peaks, they may cooperative in regulation. Calculating the overlap is only touch the surface. ChIPseeker implemented statistical methods to measure the significance of the overlap.
+
+We implement the shuffle function to randomly permute the genomic locations of ChIP peaks defined in a genome which stored in TxDb object.
+
+```{r}
+# Shuffle genome coordination
+p <- GRanges(seqnames=c("chr1", "chr3"), ranges=IRanges(start=c(1, 100), end=c(50, 130)))
+shuffle(p, TxDb=txdb)
+```
+
+With the ease of this shuffle method, we can generate thousands of random ChIP data and calculate the background null distribution of the overlap among ChIP data sets.
+
+```{r}
+#  Peak overlap enrichment analysis
+HNF1B_enrich_overlap <- enrichPeakOverlap(queryPeak = narrowPeaks_files["HNF1B_786M1A_peaks"], targetPeak = unlist(narrowPeaks_files[1:4]), TxDb = txdb, pAdjustMethod = "BH", nShuffle = 1000, chainFile = NULL, verbose = FALSE)
+
+PAX8_enrich_overlap <- enrichPeakOverlap(queryPeak = narrowPeaks_files["PAX8_786M1A_peaks"], targetPeak = unlist(narrowPeaks_files[5:8]), TxDb = txdb, pAdjustMethod = "BH", nShuffle = 1000, chainFile = NULL, verbose = FALSE)
+```
+
+Parameter queryPeak is the query ChIP data, while targetPeak is bed file name or a vector of bed file names from comparison; nShuffle is the number to shuffle the peaks in targetPeak. User should set nShuffle to 1000 or above for more robust result. Parameter chainFile are chain file name for mapping the targetPeak to the genome version consistent with queryPeak when their genome version are different. This creat the possibility of comparison among different genome version and cross species.
+
+In the output, qSample is the name of queryPeak and qLen is the the number of peaks in queryPeak. N_OL is the number of overlap between queryPeak and targetPeak.
+
+```{r}
+# write output
+write_csv(HNF1B_enrich_overlap, path = '/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPseeker/HNF1B_enrich_overlap.csv')
+write_csv(PAX8_enrich_overlap, path = '/shares/MRC-CU/Samarajiwa/Natalia/ChIPseq/Annotation/ChIPseeker/PAX8_enrich_overlap.csv')
+```
+

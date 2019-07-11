@@ -1,0 +1,90 @@
+---
+title: "COSMIC_Cancer_Genes_PAX8_HNF1B"
+output: html_document
+date: 2018-02-20
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Obtain list of Cancer Genes from Cosmic
+
+```{r}
+# read cosmic file
+cancer_genes_COSMIC <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/COSMIC/Census_Cancer_Genes_COSMIC.csv', col_names = TRUE)
+```
+
+We obtain the files with the differentially expressed genes (DEG) genes and the target genes
+
+```{r}
+# obtain PAX8 DEG and HNF1b DEG
+PAX8_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/DEG/PAX8_DEG.csv')
+HNF1B_DEG <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG/HNF1b_both_DEG.csv')
+
+# obtain PAX8 DEG and HNF1b direct targets
+PAX8_targets <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/BETA/PAX8_target_list_7861MA_prom10000.csv')
+HNF1B_targets <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/BETA/HNF1B_common_targets_list_cs_prom10000.csv')
+```
+
+We obtain the useful info from the cosmic cancer gene list: symbol, tier, hallmark, tumour types (somatic), tumour types (germline), cancer  syndrome, molecular genetics, role in cancer, and then the list of genes that appear in the census.
+
+```{r}
+cancer_genes_COSMIC <- cancer_genes_COSMIC %>%
+  # select useful info from cancer gene list
+  select(`Gene Symbol`, Tier, Hallmark, `Tumour Types(Somatic)`, `Tumour Types(Germline)`, `Cancer Syndrome`, `Molecular Genetics`, `Role in Cancer`) 
+
+# select useful info from the DEG list (gene symbol, logFC and FDR)
+PAX8_DEG_info <- PAX8_DEG %>%
+  select(gene_name.edgeR.786, logFC.edgeR.786, FDR.edgeR.786)
+
+# obtain cancer genes in PAX8 DEG and target lists
+cancer_genes_PAX8_DEG <- inner_join(cancer_genes_COSMIC, PAX8_DEG_info, by = c("Gene Symbol" = "gene_name.edgeR.786"))
+nrow(cancer_genes_PAX8_DEG)
+
+cancer_genes_PAX8_targets <- semi_join(cancer_genes_COSMIC, PAX8_targets, by = c("Gene Symbol" = "GeneSymbol"))
+nrow(cancer_genes_PAX8_targets)
+```
+
+We write the results.
+
+```{r}
+# write output
+write_csv(cancer_genes_PAX8_DEG, '/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/COSMIC/DEG_PAX8_CosmicCancerGenes.csv')
+write_csv(cancer_genes_PAX8_targets, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/COSMIC/Targets_PAX8_CosmicCancerGenes.csv')
+```
+
+We do the same for HNF1b
+
+```{r}
+cancer_genes_COSMIC <- cancer_genes_COSMIC %>%
+  # select useful info from cancer gene list
+  select(`Gene Symbol`, Tier, Hallmark, `Tumour Types(Somatic)`, `Tumour Types(Germline)`, `Cancer Syndrome`, `Molecular Genetics`, `Role in Cancer`) 
+
+# select useful info from the DEG list (gene symbol, logFC and FDR)
+HNF1B_DEG_info <- HNF1B_DEG %>%
+  select(gene_name.edgeR.2.7861MA, logFC.edgeR.2.7861MA, FDR.edgeR.2.7861MA)
+
+# obtain cancer genes in HNF1b DEG and target lists
+cancer_genes_HNF1b_DEG <- inner_join(cancer_genes_COSMIC, HNF1B_DEG_info, by = c("Gene Symbol" = "gene_name.edgeR.2.7861MA"))
+nrow(cancer_genes_HNF1b_DEG)
+
+cancer_genes_HNF1b_targets <- semi_join(cancer_genes_COSMIC, HNF1B_targets, by = c("Gene Symbol" = "GeneSymbol"))
+nrow(cancer_genes_HNF1b_targets)
+```
+
+We write the results.
+
+```{r}
+# write output
+write_csv(cancer_genes_HNF1b_DEG, '/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/COSMIC/DEG_HNF1b_CosmicCancerGenes.csv')
+write_csv(cancer_genes_HNF1b_targets, '/shares/MRC-CU/Samarajiwa/Natalia/Integration_HNF1b/COSMIC/Targets_HNF1b_CosmicCancerGenes.csv')
+```
+
+We obtain common cancer genes of both TFs.
+
+```{r}
+PAX8_HNF1b_cancer_genes <- semi_join(cancer_genes_PAX8, cancer_genes_HNF1b, by = "gene_name")
+write_csv(PAX8_HNF1b_cancer_genes, '/shares/MRC-CU/Samarajiwa/Natalia/PAX8_HNF1b_common/COSMIC/PAX8_HNF1b_cancer_genes.csv')
+```
+

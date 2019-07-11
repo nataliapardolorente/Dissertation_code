@@ -1,0 +1,195 @@
+---
+title: "HNF1b_PCA_heatmap_def"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(pheatmap)
+library(RColorBrewer)
+library(edgeR)
+```
+
+This code is to obtain the PCA and heatmap plots of the HNF1b data (definitive)
+
+```{r}
+# obtain the raw counts 
+load("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/Counts/RNAseq_experiment.json_counts.RData")
+HNF1b_counts <- counts[[1]]
+```
+
+Note: construct 2 is KO-1, and construct 8 is KO-2.
+
+```{r}
+# modify column names in raw counts
+colnames(HNF1b_counts) 
+colnames(HNF1b_counts) <- c("786-M1A_KO1_r1", "786-M1A_KO1_r2", "786-M1A_KO1_r3", "786-M1A_KO1_r4", "786-M1A_KO2_r1", "786-M1A_KO2_r2", "786-M1A_KO2_r3", "786-M1A_KO2_r4", "786-M1A_C_r1", "786-M1A_C_r2", "786-M1A_C_r3", "786-M1A_C_r4", "OS-LM1_KO1_r1", "OS-LM1_KO1_r2", "OS-LM1_KO1_r3", "OS-LM1_KO1_r4", "OS-LM1_KO2_r1", "OS-LM1_KO2_r2", "OS-LM1_KO2_r3", "OS-LM1_KO2_r4", "OS-LM1_C_r1", "OS-LM1_C_r2", "OS-LM1_C_r3", "OS-LM1_C_r4")
+```
+
+```{r}
+# obtain sample info and change constructs names
+HNF1b_sampleinfo <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/HNF1b_sampleinfo.csv")
+rownames(HNF1b_sampleinfo) <- colnames(HNF1b_counts)
+HNF1b_sampleinfo$Construct
+HNF1b_sampleinfo$Construct <- c(rep("Knock-Out 1", 4), rep("Knock-Out 2", 4), rep("Control",4), rep("Knock-Out 1", 4), rep("Knock-Out 2", 4), rep("Control",4))
+```
+
+```{r}
+# filter out lowly expressed genes
+keep <- rowSums(cpm(HNF1b_counts)>1) >= 2
+HNF1b_counts <- HNF1b_counts[keep,]
+
+# normalization
+HNF1b_CPM <- cpm(HNF1b_counts, log=TRUE, prior.count=3)
+```
+
+
+# Principal Compontent Analysis
+
+A principle components analysis (PCA) is an example of an unsupervised analysis, where we don’t specify the grouping of the samples. If your experiment is well controlled and has worked well, we should that replicate samples cluster closely, whilst the greatest sources of variation in the data should be between treatments/sample groups. It is also an incredibly useful tool for checking for outliers and batch effects.
+
+To run the PCA we need normalized data. 
+
+Ideally: Replicate samples from the same group cluster together in the plot, while samples from different groups form separate clusters. This indicates that the differences between groups are larger than those within groups, i.e., differential expression is greater than the variance and can be detected. 
+
+```{r PCA_analysis}
+# perform pca analysis
+HNF1b_CPM_PCA <- prcomp(t(HNF1b_CPM), center=T, scale. = T)
+HNF1b_CPM_PCAdf <- data.frame(HNF1b_CPM_PCA$x) 
+if (all(rownames(HNF1b_CPM_PCAdf) == rownames(HNF1b_sampleinfo))) {
+  HNF1b_CPM_PCAdf <- cbind(HNF1b_CPM_PCAdf, HNF1b_sampleinfo)
+}
+
+# plot pca analysis and save it into a png file
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/HNF1b_PCA_plot_def.png", res = 300, width = 2000, height = 1300)
+HNF1b_CPM_PCA_plot <- ggplot(HNF1b_CPM_PCAdf, aes(x = PC1, y = PC2, colour = Construct, shape = `Cell Line`))
+HNF1b_CPM_PCA_plot +
+  geom_point(size = 5) +
+  ggtitle("PCA of HNF1B Samples") +
+   labs(x = paste("PCA1 (",round(summary(HNF1b_CPM_PCA)$importance[2,1]*100),"%)", sep=""), y = paste("PCA2 (",round(summary(HNF1b_CPM_PCA)$importance[2,2]*100),"%)", sep=""), shape = "Cell Line") +
+  theme_bw() +
+  theme(legend.title = element_text(size = 20), legend.text = element_text(size = 18)) +
+  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 16)) +
+  theme(title = element_text(size = 18), plot.title = element_text(hjust = 0.5))
+dev.off()
+```
+
+
+```{r}
+#PCA per each cell line
+HNF1b_CPM_786M1A <- as.data.frame(HNF1b_CPM) %>% select(1:12) %>% as.matrix()
+HNF1b_sampleinfo_786M1A <- HNF1b_sampleinfo[1:12,] 
+rownames(HNF1b_sampleinfo_786M1A) <- rownames(HNF1b_sampleinfo)[1:12]
+
+HNF1b_CPM_OSLM1 <- as.data.frame(HNF1b_CPM) %>% select(13:24) %>% as.matrix()
+HNF1b_sampleinfo_OSLM1 <- HNF1b_sampleinfo[13:24,] 
+rownames(HNF1b_sampleinfo_OSLM1) <- rownames(HNF1b_sampleinfo)[13:24]
+
+# perform pca analysis 786M1A
+HNF1b_CPM_PCA_786M1A <- prcomp(t(HNF1b_CPM_786M1A), center=T, scale. = T)
+HNF1b_CPM_PCAdf_786M1A <- data.frame(HNF1b_CPM_PCA_786M1A$x) 
+if (all(rownames(HNF1b_CPM_PCAdf_786M1A) == rownames(HNF1b_sampleinfo_786M1A))) {
+  HNF1b_CPM_PCAdf_786M1A <- cbind(HNF1b_CPM_PCAdf_786M1A, HNF1b_sampleinfo_786M1A)
+}
+
+# perform pca analysis OSLM1
+HNF1b_CPM_PCA_OSLM1 <- prcomp(t(HNF1b_CPM_OSLM1), center=T, scale. = T)
+HNF1b_CPM_PCAdf_OSLM1 <- data.frame(HNF1b_CPM_PCA_OSLM1$x) 
+if (all(rownames(HNF1b_CPM_PCAdf_OSLM1) == rownames(HNF1b_sampleinfo_OSLM1))) {
+  HNF1b_CPM_PCAdf_OSLM1 <- cbind(HNF1b_CPM_PCAdf_OSLM1, HNF1b_sampleinfo_OSLM1)
+}
+
+# plot pca analysis and save it into a png file 786M1A
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/HNF1b_PCA_plot_786M1Adef.png", res = 300, width = 2000, height = 1300)
+HNF1b_CPM_PCAdf_786M1A_plot <- ggplot(HNF1b_CPM_PCAdf_786M1A, aes(x = PC1, y = PC2, colour = Construct, shape = `Cell Line`))
+HNF1b_CPM_PCAdf_786M1A_plot +
+  geom_point(size = 5) +
+  ggtitle("PCA of HNF1B Samples", subtitle = "Cell Line 786-M1A") +
+  labs(x = paste("PCA1 (",round(summary(HNF1b_CPM_PCA_786M1A)$importance[2,1]*100),"%)", sep=""), y = paste("PCA2 (",round(summary(HNF1b_CPM_PCA_786M1A)$importance[2,2]*100),"%)", sep=""), shape = "Cell Line") +
+    theme(legend.title = element_text(size = 20), legend.text = element_text(size = 18)) +
+  theme_bw() +
+  theme(legend.title = element_text(size = 20), legend.text = element_text(size = 18)) +
+  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 16)) +
+  theme(title = element_text(size = 18), plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+dev.off()
+
+# plot pca analysis and save it into a png file OSLM1
+png("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/HNF1b_PCA_plot_OSLM1def.png", res = 300, width = 2000, height = 1300)
+HNF1b_CPM_PCAdf_OSLM1_plot <- ggplot(HNF1b_CPM_PCAdf_OSLM1, aes(x = PC1, y = PC2, colour = Construct, shape = `Cell Line`))
+HNF1b_CPM_PCAdf_OSLM1_plot +
+  geom_point(size = 5) +
+  ggtitle("PCA of HNF1B Samples", subtitle = "Cell Line OS-LM1") +
+  labs(x = paste("PCA1 (",round(summary(HNF1b_CPM_PCA_OSLM1)$importance[2,1]*100),"%)", sep=""), y = paste("PCA2 (",round(summary(HNF1b_CPM_PCA_OSLM1)$importance[2,2]*100),"%)", sep=""), shape = "Cell Line")  +
+  scale_shape_manual(values = 17) +
+  theme_bw() +
+  theme(legend.title = element_text(size = 20), legend.text = element_text(size = 18)) +
+  theme(axis.title = element_text(size = 18), axis.text = element_text(size = 16)) +
+  theme(title = element_text(size = 18), plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+dev.off()
+
+
+
+```
+
+
+# Hierarchical Clustering with Heat Maps
+
+We are going to plot the DEG common in the 2 constructs (KO1 and KO2) and detected by edgeR and DESeq2 and in both celllines (786-M1A and OS-LM1)
+Threshold: FDR <= 0.05, abs(log2FC) >= 0.5
+
+```{r}
+# input common DEG for PAX8
+DEG_HNF1b <- read_csv("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Constructs_separated/DEG/HNF1b_both_DEG.csv")
+# we filter all genes in counts and keep only the DEG
+HNF1b_counts_DEG <- as.data.frame(HNF1b_CPM) %>% 
+  rownames_to_column(var = "GeneID") %>% 
+  semi_join(DEG_HNF1b, by = "GeneID") %>%
+  column_to_rownames("GeneID") %>%
+  as.matrix()
+```
+
+
+```{r}
+# annotation data frame
+annot <- data.frame(Construct = HNF1b_sampleinfo$Construct, CellLine = HNF1b_sampleinfo$`Cell Line`)
+rownames(annot) <- colnames(HNF1b_counts_DEG)
+colnames(annot) <- c("Construct", "Cell Line")
+annot_v1 <- colorRampPalette(colors = rev(brewer.pal(length(unique(HNF1b_sampleinfo$Construct)), "Set1")))(length(unique(HNF1b_sampleinfo$Construct)))
+names(annot_v1) <- unique(HNF1b_sampleinfo$Construct)
+annot_v2 <- colorRampPalette(colors = rev(brewer.pal(length(unique(HNF1b_sampleinfo$`Cell Line`)), "Set2")))(length(unique(HNF1b_sampleinfo$`Cell Line`)))
+names(annot_v2) <- unique(HNF1b_sampleinfo$`Cell Line`)
+annot_colors <- list(Construct = annot_v1, CellLine = annot_v2)
+
+# obtain color heatmap
+color_heatmap <- colorRampPalette(colors = rev(brewer.pal(11, "RdBu")))(100)
+
+```
+
+```{r}
+# Random numbers engine
+set.seed(2)
+
+# obtain heatmap
+pheatmap(HNF1b_counts_DEG, 
+         scale = "row", #scale by row
+         color = color_heatmap, #colors of the heatmap
+         cluster_cols =F, 
+         cluster_rows =T, 
+         show_rownames = F,
+         show_colnames = F,
+         fontsize_col = 10, 
+         clustering_method = "complete", #clustering parameter (see hclust function)
+         clustering_distance_rows = "correlation", # clustering distance measure
+         annotation_col = annot, 
+         annotation_colors = annot_colors,
+         border_color = NA, 
+         filename = "/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_HNF1b/Plots/DEG_heatmap_HNF1b.pdf"
+         )
+```
+
+

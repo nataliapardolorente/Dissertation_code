@@ -1,0 +1,74 @@
+---
+title: "IPA_plots_PAX8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(gridExtra)
+```
+
+# PAX8 results
+
+IPA output using results from DESeq2 analysis as input.
+Note: KD1503 is KD1 and KD786 is KD2
+
+```{r}
+# input files
+IPA_results_KD1 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/IPA/PAX8_CanPathways_1503_DESeq2.txt", delim = "\t", skip = 1)
+IPA_results_KD2 <- read_delim("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Constructs_separated/IPA/PAX8_CanPathways_786_DESeq2.txt", delim = "\t", skip = 1)
+```
+
+```{r}
+# modify df to plot
+IPA_results_df <- function(IPA_results) {
+  # consider only up and down pathways
+  IPA_results <- IPA_results %>% filter(`z-score` > 0 | `z-score` < 0)
+  # plot only the 15 most significant results
+  IPA_results <- IPA_results[1:15,]
+}
+IPA_results_KD1_df <- IPA_results_df(IPA_results_KD1)
+IPA_results_KD2_df <- IPA_results_df(IPA_results_KD2)
+
+# add column indicating KD and put data together
+IPA_results_KD1_df$Condition <- c(rep("IPA results KD-1", nrow(IPA_results_KD1_df)))
+IPA_results_KD2_df$Condition <- c(rep("IPA results KD-2", nrow(IPA_results_KD2_df)))
+IPA_results <- rbind(IPA_results_KD1_df, IPA_results_KD2_df) %>%
+  # add order
+  mutate(order = factor(paste(Condition, `Ingenuity Canonical Pathways`))) %>%
+  mutate(order = reorder(order, rank(` -log(p-value)`)))
+
+```
+
+
+  
+```{r}
+# plot
+obtain_IPA_plot <- function(IPA_results_df) {
+  threshold <- 1.3
+  ggplot(IPA_results_df, aes(x = order, y = ` -log(p-value)`, fill = `z-score`)) +
+    geom_col() +
+    facet_wrap(~ Condition, ncol = 1, scales = "free_y") +
+    geom_hline(aes(yintercept = threshold), color = "black", linetype="dashed") +
+    geom_text(aes(0,threshold, label = "Threshold", vjust= -2, hjust = 0)) +
+    scale_fill_gradient2(high="red", low = "blue", mid = "white", na.value="grey") +
+    scale_x_discrete(labels = IPA_results_df$`Ingenuity Canonical Pathways`, breaks = IPA_results_df$order) +
+    xlab("") +
+    ylab("-log10(pvalue)") +
+    labs(fill = "z-score") +
+    coord_flip() +
+    theme_bw() +
+    theme(strip.text = element_text(size=13)) +
+    theme(axis.text.x = element_text(size = 12, colour = "black")) +
+    theme(axis.text.y = element_text(size = 12, colour = "black")) +
+    theme(legend.title = element_text(size = 14, colour = "black")) +
+    theme(legend.text = element_text(size = 14, colour = "black")) +
+    theme(axis.title.x =  element_text(size = 12, colour = "black")) +
+    theme(title = element_text(size=13))
+  }
+
+obtain_IPA_plot(IPA_results) +
+  ggtitle("Pathway Analysis", subtitle = "PAX8, cell line 786-M1A") +
+  ggsave("/shares/MRC-CU/Samarajiwa/Natalia/RNAseq_PAX8/Plots/IPA_PAX8.pdf",  height = 25, width = 23, units = "cm")
+```
+

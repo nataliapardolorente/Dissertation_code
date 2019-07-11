@@ -1,0 +1,88 @@
+---
+title: "PAX8_target_genes_TF_epigenetic_genes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggrepel)
+```
+
+# TFs and epigenetic genes
+
+List of TFs obtained from the TRRUST database.
+List of epigenetic factors obtained from the EpiFactors database.
+
+```{r cars}
+# obtain list of TFs and list of epigenetic factors
+TF_list <- read_tsv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/trrust_TF_human_hugo.csv', col_names = c("Factor", "Target", "Interaction", "References")) %>% select(Factor) %>%
+  unique()
+nrow(TF_list)
+
+epi_factors <- read_tsv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/epigenetic_genes_EpiFactor_db.csv') %>%
+  select(`HGNC approved symbol`, Function, Modification) %>%
+  unique()
+nrow(epi_factors)
+```
+
+# PAX8 target genes
+
+```{r}
+# obtain list of PAX8 target genes
+PAX8_targets <- read_csv('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/BETA/targets/PAX8_target_list_7861MA_prom10000.csv')
+nrow(PAX8_targets)
+```
+
+# TFs and epigenetic factors in PAX8 target genes
+
+```{r}
+# obtain TFs and epigenetic factors from the list of target genes
+PAX8_targets_TF <- inner_join(PAX8_targets, TF_list, by = c("GeneSymbol" = "Factor"))
+nrow(PAX8_targets_TF)
+
+PAX8_targets_epifactors <- inner_join(PAX8_targets, epi_factors, by = c("GeneSymbol" = "HGNC approved symbol"))
+nrow(PAX8_targets_epifactors)
+```
+
+```{r}
+# obtain df
+PAX8_targets <- PAX8_targets %>% mutate(
+  Function = ifelse((PAX8_targets$GeneSymbol %in% TF_list$Factor & PAX8_targets$GeneSymbol %in% epi_factors$`HGNC approved symbol`), "Transcription factor, Epigenetic factor", ifelse(PAX8_targets$GeneSymbol %in% TF_list$Factor, "Transcription factor", ifelse(PAX8_targets$GeneSymbol %in% epi_factors$`HGNC approved symbol`, "Epigenetic factor", "Other"))))
+
+PAX8_targets %>% group_by(Function) %>% summarise(n = n())
+
+# write results
+write_csv(PAX8_targets, "/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/Cytoscape/PAX8_targets_function_TF_EF.csv")
+```
+
+# Plot
+
+```{r}
+# obtain dataframe to plot
+PAX8_target_TF_epifactors_df <- data.frame(Class = c("Transcription Factors", "Epigenetic Factors", "Other"), Number = c(nrow(PAX8_targets_TF), nrow(PAX8_targets_epifactors), nrow(PAX8_targets)-(nrow(PAX8_targets_TF)+nrow(PAX8_targets_epifactors))), Percentage =  c(round(nrow(PAX8_targets_TF)/nrow(PAX8_targets)*100, digits = 1), round(nrow(PAX8_targets_epifactors)/nrow(PAX8_targets)*100, digits = 1), round((nrow(PAX8_targets)-(nrow(PAX8_targets_TF)+nrow(PAX8_targets_epifactors)))/nrow(PAX8_targets)*100, digits = 1)))
+
+#plot
+
+ggplot(PAX8_target_TF_epifactors_df, aes(x = "", y = Percentage, fill = Class)) +
+  geom_bar(stat = "identity", width = 1) +
+  geom_text_repel(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5), size = 6.5) +
+  scale_fill_manual(values = c("cyan3", "lightgrey", "darksalmon")) +
+  coord_polar("y", start = 0) +
+  theme_minimal() +
+  ggtitle("PAX8 Target Genes", subtitle = "786-M1A cells") +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  axis.text.x=element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  plot.title= element_text(size= 20, face="bold", hjust = 0.5),
+  plot.subtitle = element_text(size= 20, face="bold", hjust = 0.5),
+  legend.title = element_text(size = 19),
+  legend.text = element_text(size = 17)
+  ) +
+  ggsave('/shares/MRC-CU/Samarajiwa/Natalia/Integration_PAX8/Plots/Function_PAX8_target_genes.pdf', width = 15, height = 10, units = c("cm"))
+
+```
+
