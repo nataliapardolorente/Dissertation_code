@@ -14,7 +14,7 @@ This is the code that I personally developed during my research project.
 
 MultiQC reports of the fastq files of the different datasets
 
-[ChIPseq_datasets_MultiQC_report](file:///shares/MRC-CU/Samarajiwa/Natalia/GitHub/Dissertation/MultiQC_reports/ChIP_multiqc_report.html)
+[ChIPseq_datasets_MultiQC_report](file:///shares/MRC-CU/Samarajiwa/Natalia/Cluster/RNA-seq/RNA-seq_PAX8/constructs_separated/multiqc/autoTrim_2019-01-28_18-19-15/multiqc_report.html)
 
 ## 1.Scripts_Preprocessing
 
