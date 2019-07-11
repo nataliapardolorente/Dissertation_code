@@ -14,6 +14,8 @@ This is the code that I personally developed during my research project.
 
 MultiQC reports of the fastq files of the different datasets
 
+[ChIPseq_datasets_MultiQC_report](file:///shares/MRC-CU/Samarajiwa/Natalia/GitHub/Dissertation/MultiQC_reports/ChIP_multiqc_report.html)
+
 ## 1.Scripts_Preprocessing
 
 - alignment_plots.Rmd: code to obtain alignment quality plots for all the datasets
